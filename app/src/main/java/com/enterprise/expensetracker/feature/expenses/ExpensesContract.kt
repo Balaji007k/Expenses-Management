@@ -10,7 +10,7 @@ data class ExpensesState(
     val selectedCategory: Category? = null,
     val searchQuery: String = "",
     val isAddDialogOpen: Boolean = false,
-    val currencySymbol: String = "$"
+    val currencySymbol: String = "₹"
 )
 
 sealed interface ExpensesEvent {

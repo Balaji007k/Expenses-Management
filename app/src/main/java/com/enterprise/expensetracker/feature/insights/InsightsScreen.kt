@@ -123,7 +123,7 @@ fun InsightsScreen(
                                 Spacer(modifier = Modifier.height(14.dp))
 
                                 Text(
-                                    text = "$${String.format(Locale.US, "%.2f", forecast.predictedEndOfMonthSpend)}",
+                                    text = "₹${String.format(Locale.US, "%.2f", forecast.predictedEndOfMonthSpend)}",
                                     fontSize = 32.sp,
                                     fontWeight = FontWeight.Bold,
                                     color = TextPrimaryDark
@@ -144,7 +144,7 @@ fun InsightsScreen(
                                     Column {
                                         Text(text = "Current Actual", fontSize = 11.sp, color = TextMutedDark)
                                         Text(
-                                            text = "$${String.format(Locale.US, "%.2f", forecast.currentMonthActual)}",
+                                            text = "₹${String.format(Locale.US, "%.2f", forecast.currentMonthActual)}",
                                             fontSize = 14.sp,
                                             fontWeight = FontWeight.SemiBold,
                                             color = TextPrimaryDark
@@ -153,7 +153,7 @@ fun InsightsScreen(
                                     Column {
                                         Text(text = "Burn Rate / Day", fontSize = 11.sp, color = TextMutedDark)
                                         Text(
-                                            text = "$${String.format(Locale.US, "%.2f", forecast.predictedBurnRatePerDay)}",
+                                            text = "₹${String.format(Locale.US, "%.2f", forecast.predictedBurnRatePerDay)}",
                                             fontSize = 14.sp,
                                             fontWeight = FontWeight.SemiBold,
                                             color = EmeraldSuccess

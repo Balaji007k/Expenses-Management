@@ -59,13 +59,13 @@ class OpenAiEngine @Inject constructor(
 
     override suspend fun detectAnomalies(expenses: List<Expense>): Result<List<AiInsight>> {
         return withContext(dispatchers.io) {
-            val highValue = expenses.filter { it.amount > 500.0 }.map {
+            val highValue = expenses.filter { it.amount > 2500.0 }.map {
                 AiInsight(
                     id = "openai_${it.id}",
                     type = InsightType.BUDGET_OPTIMIZATION,
                     severity = InsightSeverity.INFO,
-                    title = "Enterprise Spend Optimization",
-                    message = "Transaction for '${it.title}' of $${it.amount} qualifies for corporate rebate optimization.",
+                    title = "Family Spend Optimization",
+                    message = "Transaction for '${it.title}' of ₹${it.amount} is higher than normal. Check if monthly bulk discounts or subscriptions apply.",
                     confidenceScore = 0.91f,
                     generatedByEngine = "OpenAI GPT-4o"
                 )

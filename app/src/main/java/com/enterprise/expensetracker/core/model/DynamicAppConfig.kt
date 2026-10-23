@@ -12,11 +12,11 @@ data class DynamicAppConfig(
     val activeAiProvider: String = "GEMINI",
     val isAiInsightsEnabled: Boolean = true,
     val isAnomalyDetectionEnabled: Boolean = true,
-    val defaultCurrencyCode: String = "USD",
+    val defaultCurrencyCode: String = "INR",
     val maxSingleExpenseThreshold: Double = 50000.0,
     val syncIntervalMinutes: Long = 15L,
     val mongoClusterRegion: String = "us-east-1",
     val isReceiptScanEnabled: Boolean = true,
-    val welcomeMessage: String = "Welcome to Enterprise Expense Management",
+    val welcomeMessage: String = "Welcome to Home Expense Tracker",
     val dbConnectionUri: String = "mongodb+srv://teabuff_db_user:1XPvy4K8hHmzZqfg@cluster0.fithesf.mongodb.net/ExpensesManagement"
 )

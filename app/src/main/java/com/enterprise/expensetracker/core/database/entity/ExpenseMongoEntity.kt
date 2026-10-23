@@ -17,7 +17,7 @@ data class ExpenseMongoEntity(
     var title: String = "",
     var amount: Double = 0.0,
     var categoryId: String = "misc",
-    var currencyCode: String = "USD",
+    var currencyCode: String = "INR",
     var timestamp: Long = 0L,
     var notes: String? = null,
     var receiptUrl: String? = null,

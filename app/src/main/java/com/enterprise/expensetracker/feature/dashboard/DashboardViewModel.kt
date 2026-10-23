@@ -94,36 +94,41 @@ class DashboardViewModel @Inject constructor(
                     val homeDemoList = listOf(
                         Expense(
                             title = "Weekly Groceries & Vegetables",
-                            amount = 142.50,
+                            amount = 2450.00,
                             category = Category.GROCERIES_AND_FOOD,
-                            notes = "Supermarket fresh food and dairy",
+                            currency = Currency.INR,
+                            notes = "Supermarket fresh food, milk and vegetables",
                             syncStatus = SyncStatus.PENDING_SYNC
                         ),
                         Expense(
                             title = "Electricity & Water Bill",
-                            amount = 78.00,
+                            amount = 1850.00,
                             category = Category.UTILITIES_AND_BILLS,
-                            notes = "Monthly state power board",
+                            currency = Currency.INR,
+                            notes = "Monthly state electricity board",
                             syncStatus = SyncStatus.PENDING_SYNC
                         ),
                         Expense(
                             title = "Home High-Speed Wi-Fi",
-                            amount = 45.00,
+                            amount = 999.00,
                             category = Category.INTERNET_AND_MOBILE,
+                            currency = Currency.INR,
                             notes = "Fiber broadband monthly bill",
                             syncStatus = SyncStatus.PENDING_SYNC
                         ),
                         Expense(
                             title = "Kids School Supplies & Books",
-                            amount = 65.00,
+                            amount = 1200.00,
                             category = Category.KIDS_AND_EDUCATION,
-                            notes = "Stationery and notebooks",
+                            currency = Currency.INR,
+                            notes = "Stationery, notebooks and school project",
                             syncStatus = SyncStatus.PENDING_SYNC
                         ),
                         Expense(
                             title = "Family Dinner & Weekend Treat",
-                            amount = 58.00,
+                            amount = 1650.00,
                             category = Category.DINING_AND_OUTING,
+                            currency = Currency.INR,
                             notes = "Sunday family dinner",
                             syncStatus = SyncStatus.PENDING_SYNC
                         )

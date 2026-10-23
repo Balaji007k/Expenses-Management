@@ -314,7 +314,7 @@ class MongoDbManagerImpl @Inject constructor(
                             title = doc.getString("title") ?: "",
                             amount = (doc.get("amount") as? Number)?.toDouble() ?: 0.0,
                             categoryId = doc.getString("categoryId") ?: "misc",
-                            currencyCode = doc.getString("currencyCode") ?: "USD",
+                            currencyCode = doc.getString("currencyCode") ?: "INR",
                             timestamp = (doc.get("timestamp") as? Number)?.toLong() ?: System.currentTimeMillis(),
                             notes = doc.getString("notes"),
                             receiptUrl = doc.getString("receiptUrl"),

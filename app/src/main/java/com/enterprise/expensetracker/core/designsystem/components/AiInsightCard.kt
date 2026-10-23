@@ -136,7 +136,7 @@ fun AiInsightCard(
                     if (insight.estimatedSavings != null) {
                         Spacer(modifier = Modifier.height(6.dp))
                         Text(
-                            text = "Estimated Potential Savings: $${String.format("%.2f", insight.estimatedSavings)}",
+                            text = "Estimated Potential Savings: ₹${String.format("%.2f", insight.estimatedSavings)}",
                             fontSize = 12.sp,
                             fontWeight = FontWeight.SemiBold,
                             color = EmeraldSuccess

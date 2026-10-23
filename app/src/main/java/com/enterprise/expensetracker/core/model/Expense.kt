@@ -13,7 +13,7 @@ data class Expense(
     val title: String,
     val amount: Double,
     val category: Category,
-    val currency: Currency = Currency.USD,
+    val currency: Currency = Currency.INR,
     val timestamp: Long = System.currentTimeMillis(),
     val notes: String? = null,
     val receiptUrl: String? = null,

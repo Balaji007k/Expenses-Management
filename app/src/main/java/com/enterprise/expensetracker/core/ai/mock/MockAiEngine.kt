@@ -70,7 +70,7 @@ class MockAiEngine @Inject constructor() : AiEngine {
             return Result.success(insights)
         }
 
-        val highExpenses = expenses.filter { it.amount > 150.0 }
+        val highExpenses = expenses.filter { it.amount > 2500.0 }
         if (highExpenses.isNotEmpty()) {
             val largest = highExpenses.maxBy { it.amount }
             insights.add(
@@ -79,7 +79,7 @@ class MockAiEngine @Inject constructor() : AiEngine {
                     type = InsightType.ANOMALY_DETECTED,
                     severity = InsightSeverity.WARNING,
                     title = "High Household Expense",
-                    message = "'${largest.title}' (${largest.currency.symbol}${largest.amount}) is a major contributor to this month's budget.",
+                    message = "'${largest.title}' (${largest.currency.symbol}${largest.amount.toInt()}) is a major contributor to this month's budget.",
                     confidenceScore = 0.92f,
                     generatedByEngine = "Budget Advisor"
                 )
@@ -93,7 +93,7 @@ class MockAiEngine @Inject constructor() : AiEngine {
                 severity = InsightSeverity.OPPORTUNITY,
                 title = "Grocery & Utility Saving Tip",
                 message = "Switching to monthly pantry bulk orders and smart power saver habits can reduce bills.",
-                estimatedSavings = 45.0,
+                estimatedSavings = 1500.0,
                 confidenceScore = 0.89f,
                 generatedByEngine = "Family Budget Advisor"
             )

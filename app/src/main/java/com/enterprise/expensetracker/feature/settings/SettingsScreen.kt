@@ -96,8 +96,8 @@ fun SettingsScreen(
 
                         Spacer(modifier = Modifier.height(14.dp))
 
-                        SettingRow(label = "Currency", value = state.config.defaultCurrencyCode)
-                        SettingRow(label = "Monthly Family Limit", value = "$${state.config.maxSingleExpenseThreshold}")
+                        SettingRow(label = "Currency", value = "Rupees (${state.config.defaultCurrencyCode} - ₹)")
+                        SettingRow(label = "Monthly Family Limit", value = "₹${state.config.maxSingleExpenseThreshold.toInt()}")
                         SettingRow(label = "Smart Insights", value = if (state.config.isAiInsightsEnabled) "Enabled" else "Disabled")
                     }
                 }
