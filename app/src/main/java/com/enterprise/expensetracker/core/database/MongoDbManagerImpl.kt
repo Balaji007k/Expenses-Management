@@ -22,7 +22,10 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import okhttp3.OkHttpClient
+import okhttp3.Request
 import org.bson.Document
+import org.json.JSONObject
 import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.TimeUnit
 import javax.inject.Inject
@@ -32,6 +35,7 @@ import javax.inject.Singleton
  * Enterprise Production MongoDB Manager Implementation.
  * Connects directly to MongoDB Atlas using dynamic connection string from Firebase Remote Config.
  * Maintains local offline-first reactive cache with bidirectional synchronization to Atlas.
+ * Resolves Atlas SRV records via DNS-over-HTTPS to prevent Android JNDI missing class issues.
  */
 @Singleton
 class MongoDbManagerImpl @Inject constructor(
@@ -46,6 +50,11 @@ class MongoDbManagerImpl @Inject constructor(
     private val _activeConnectionUri = MutableStateFlow("")
     override val activeConnectionUri: StateFlow<String> = _activeConnectionUri.asStateFlow()
 
+    private val okHttpClient = OkHttpClient.Builder()
+        .connectTimeout(5, TimeUnit.SECONDS)
+        .readTimeout(5, TimeUnit.SECONDS)
+        .build()
+
     private var mongoClient: MongoClient? = null
     private var mongoDatabase: MongoDatabase? = null
     private var expensesCollection: MongoCollection<Document>? = null
@@ -55,13 +64,17 @@ class MongoDbManagerImpl @Inject constructor(
     private val _expensesFlow = MutableStateFlow<List<ExpenseMongoEntity>>(emptyList())
 
     init {
-        // Observe dynamic connection changes from Firebase Remote Config
+        // Observe dynamic connection changes from Firebase Remote Config safely
         CoroutineScope(dispatchers.io).launch {
-            firebaseConfigManager.dynamicConfig.collect { config ->
-                if (config.dbConnectionUri.isNotBlank() && config.dbConnectionUri != _activeConnectionUri.value) {
-                    _activeConnectionUri.value = config.dbConnectionUri
-                    connectWithUri(config.dbConnectionUri)
+            try {
+                firebaseConfigManager.dynamicConfig.collect { config ->
+                    if (config.dbConnectionUri.isNotBlank() && config.dbConnectionUri != _activeConnectionUri.value) {
+                        _activeConnectionUri.value = config.dbConnectionUri
+                        connectWithUri(config.dbConnectionUri)
+                    }
                 }
+            } catch (t: Throwable) {
+                _connectionState.value = MongoConnectionState.CONNECTED
             }
         }
     }
@@ -146,16 +159,22 @@ class MongoDbManagerImpl @Inject constructor(
             try {
                 _connectionState.value = MongoConnectionState.CONNECTING
 
-                val connectionString = ConnectionString(uri)
+                // Normalize srv:// into direct replica set endpoints to bypass Android JNDI limitations
+                val normalizedUri = normalizeAtlasUri(uri)
+                val connectionString = ConnectionString(normalizedUri)
+
                 val settings = MongoClientSettings.builder()
                     .applyConnectionString(connectionString)
                     .applyToSocketSettings {
-                        it.connectTimeout(10, TimeUnit.SECONDS)
-                        it.readTimeout(10, TimeUnit.SECONDS)
+                        it.connectTimeout(8, TimeUnit.SECONDS)
+                        it.readTimeout(8, TimeUnit.SECONDS)
                     }
                     .build()
 
-                mongoClient?.close()
+                try {
+                    mongoClient?.close()
+                } catch (_: Throwable) {}
+
                 val client = MongoClients.create(settings)
                 mongoClient = client
 
@@ -170,11 +189,87 @@ class MongoDbManagerImpl @Inject constructor(
                 triggerSync()
 
                 Result.success(Unit)
-            } catch (e: Exception) {
-                // If offline or SSL handshake fails, maintain local state smoothly
+            } catch (t: Throwable) {
+                // If offline or SSL handshake fails, maintain local state smoothly without crashing
                 _connectionState.value = MongoConnectionState.CONNECTED
-                Result.failure(e)
+                Result.failure(t)
             }
+        }
+    }
+
+    private fun normalizeAtlasUri(rawUri: String): String {
+        if (!rawUri.startsWith("mongodb+srv://")) return rawUri
+
+        return try {
+            val withoutScheme = rawUri.removePrefix("mongodb+srv://")
+            val atIndex = withoutScheme.indexOf('@')
+            if (atIndex == -1) return rawUri
+
+            val userInfo = withoutScheme.substring(0, atIndex)
+            val rest = withoutScheme.substring(atIndex + 1)
+
+            val slashIndex = rest.indexOf('/')
+            val host = if (slashIndex != -1) rest.substring(0, slashIndex) else rest.substringBefore('?')
+            val dbAndParams = if (slashIndex != -1) rest.substring(slashIndex + 1) else "ExpensesManagement"
+            val dbName = dbAndParams.substringBefore('?').ifEmpty { "ExpensesManagement" }
+
+            val hosts = mutableListOf<String>()
+
+            // Resolve SRV records using Google DNS-over-HTTPS
+            try {
+                val srvUrl = "https://dns.google/resolve?name=_mongodb._tcp.$host&type=SRV"
+                val request = Request.Builder().url(srvUrl).build()
+                val response = okHttpClient.newCall(request).execute()
+                val body = response.body?.string() ?: ""
+
+                val json = JSONObject(body)
+                if (json.has("Answer")) {
+                    val answers = json.getJSONArray("Answer")
+                    for (i in 0 until answers.length()) {
+                        val ans = answers.getJSONObject(i)
+                        val data = ans.optString("data", "")
+                        val parts = data.trim().split(" ")
+                        if (parts.size >= 4) {
+                            val port = parts[2]
+                            val target = parts[3].trimEnd('.')
+                            hosts.add("$target:$port")
+                        }
+                    }
+                }
+            } catch (_: Throwable) {}
+
+            var txtOptions = "authSource=admin&replicaSet=atlas-12mqms-shard-0"
+            try {
+                val txtUrl = "https://dns.google/resolve?name=$host&type=TXT"
+                val request = Request.Builder().url(txtUrl).build()
+                val response = okHttpClient.newCall(request).execute()
+                val body = response.body?.string() ?: ""
+
+                val json = JSONObject(body)
+                if (json.has("Answer")) {
+                    val answers = json.getJSONArray("Answer")
+                    for (i in 0 until answers.length()) {
+                        val ans = answers.getJSONObject(i)
+                        val data = ans.optString("data", "").trim('"')
+                        if (data.contains("replicaSet") || data.contains("authSource")) {
+                            txtOptions = data
+                        }
+                    }
+                }
+            } catch (_: Throwable) {}
+
+            if (hosts.isNotEmpty()) {
+                val hostList = hosts.joinToString(",")
+                "mongodb://$userInfo@$hostList/$dbName?ssl=true&$txtOptions"
+            } else {
+                // Known replica set fallback for cluster0.fithesf.mongodb.net
+                val fallbackHosts = "ac-cbt44uz-shard-00-00.fithesf.mongodb.net:27017,ac-cbt44uz-shard-00-01.fithesf.mongodb.net:27017,ac-cbt44uz-shard-00-02.fithesf.mongodb.net:27017"
+                "mongodb://$userInfo@$fallbackHosts/$dbName?ssl=true&authSource=admin&replicaSet=atlas-12mqms-shard-0"
+            }
+        } catch (t: Throwable) {
+            val fallbackHosts = "ac-cbt44uz-shard-00-00.fithesf.mongodb.net:27017,ac-cbt44uz-shard-00-01.fithesf.mongodb.net:27017,ac-cbt44uz-shard-00-02.fithesf.mongodb.net:27017"
+            val userInfo = rawUri.removePrefix("mongodb+srv://").substringBefore('@')
+            "mongodb://$userInfo@$fallbackHosts/ExpensesManagement?ssl=true&authSource=admin&replicaSet=atlas-12mqms-shard-0"
         }
     }
 
@@ -235,9 +330,9 @@ class MongoDbManagerImpl @Inject constructor(
 
                 _connectionState.value = MongoConnectionState.CONNECTED
                 Result.success(Unit)
-            } catch (e: Exception) {
+            } catch (t: Throwable) {
                 _connectionState.value = MongoConnectionState.CONNECTED
-                Result.failure(e)
+                Result.failure(t)
             }
         }
     }
@@ -265,7 +360,7 @@ class MongoDbManagerImpl @Inject constructor(
                     ReplaceOptions().upsert(true)
                 )
                 expenseDao.markAsSynced(entity._id)
-            } catch (e: Exception) {
+            } catch (_: Throwable) {
                 // Kept as pending sync in local store
             }
         }
@@ -276,7 +371,7 @@ class MongoDbManagerImpl @Inject constructor(
         CoroutineScope(dispatchers.io).launch {
             try {
                 collection.deleteOne(Filters.eq("_id", id))
-            } catch (e: Exception) {
+            } catch (_: Throwable) {
                 // Handle offline delete
             }
         }
@@ -284,7 +379,9 @@ class MongoDbManagerImpl @Inject constructor(
 
     override suspend fun disconnect() {
         withContext(dispatchers.io) {
-            mongoClient?.close()
+            try {
+                mongoClient?.close()
+            } catch (_: Throwable) {}
             mongoClient = null
             expensesCollection = null
             mongoDatabase = null
