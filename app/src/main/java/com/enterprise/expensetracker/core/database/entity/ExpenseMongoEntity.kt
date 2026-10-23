@@ -3,12 +3,14 @@ package com.enterprise.expensetracker.core.database.entity
 import com.enterprise.expensetracker.core.model.Category
 import com.enterprise.expensetracker.core.model.Currency
 import com.enterprise.expensetracker.core.model.Expense
+import com.enterprise.expensetracker.core.model.ExpenseScope
+import com.enterprise.expensetracker.core.model.RestockReason
+import com.enterprise.expensetracker.core.model.StockStatus
 import com.enterprise.expensetracker.core.model.SyncStatus
 import kotlinx.serialization.Serializable
 
 /**
- * MongoDB / Realm document entity mapping for expenses.
- * Represents schema for MongoDB Atlas Device Sync & Local Database.
+ * MongoDB document entity mapping for expenses in Atlas 'Expense' collection.
  */
 @Serializable
 data class ExpenseMongoEntity(
@@ -28,7 +30,15 @@ data class ExpenseMongoEntity(
     var createdByUserId: String = "user_default",
     var createdByUserName: String = "Head of Household",
     var createdByRelationship: String = "Head",
-    var familyId: String = "family_primary"
+    var familyId: String = "family_primary",
+    var quantity: Double = 1.0,
+    var unit: String = "item",
+    var scope: String = "FAMILY",
+    var stockStatus: String = "IN_STOCK",
+    var stockEndedAt: Long? = null,
+    var lastRestockedAt: Long? = null,
+    var restockReason: String? = null,
+    var quantityRemainingBeforeRestock: Double? = null
 )
 
 fun Expense.toMongoEntity(ownerId: String = "household_user"): ExpenseMongoEntity {
@@ -49,7 +59,15 @@ fun Expense.toMongoEntity(ownerId: String = "household_user"): ExpenseMongoEntit
         createdByUserId = createdByUserId,
         createdByUserName = createdByUserName,
         createdByRelationship = createdByRelationship,
-        familyId = familyId
+        familyId = familyId,
+        quantity = quantity,
+        unit = unit,
+        scope = scope.name,
+        stockStatus = stockStatus.name,
+        stockEndedAt = stockEndedAt,
+        lastRestockedAt = lastRestockedAt,
+        restockReason = restockReason?.name,
+        quantityRemainingBeforeRestock = quantityRemainingBeforeRestock
     )
 }
 
@@ -70,6 +88,14 @@ fun ExpenseMongoEntity.toDomain(): Expense {
         createdByUserId = createdByUserId,
         createdByUserName = createdByUserName,
         createdByRelationship = createdByRelationship,
-        familyId = familyId
+        familyId = familyId,
+        quantity = quantity,
+        unit = unit.ifBlank { "item" },
+        scope = runCatching { ExpenseScope.valueOf(scope) }.getOrDefault(ExpenseScope.FAMILY),
+        stockStatus = runCatching { StockStatus.valueOf(stockStatus) }.getOrDefault(StockStatus.IN_STOCK),
+        stockEndedAt = stockEndedAt,
+        lastRestockedAt = lastRestockedAt,
+        restockReason = restockReason?.let { runCatching { RestockReason.valueOf(it) }.getOrNull() },
+        quantityRemainingBeforeRestock = quantityRemainingBeforeRestock
     )
 }

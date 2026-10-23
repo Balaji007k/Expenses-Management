@@ -1,6 +1,8 @@
 package com.enterprise.expensetracker.core.database
 
+import com.enterprise.expensetracker.core.database.dao.BudgetMongoDao
 import com.enterprise.expensetracker.core.database.dao.ExpenseMongoDao
+import com.enterprise.expensetracker.core.database.dao.ItemCatalogMongoDao
 import com.enterprise.expensetracker.core.database.dao.UserMongoDao
 import kotlinx.coroutines.flow.StateFlow
 
@@ -15,13 +17,15 @@ enum class MongoConnectionState {
 /**
  * Enterprise MongoDB Connection & Sync Lifecycle Manager.
  * Orchestrates connection to MongoDB Atlas, local database storage,
- * and background bidirectional sync.
+ * and background bidirectional sync across Expenses, Users, Budgets, and Item Catalog.
  */
 interface MongoDbManager {
     val connectionState: StateFlow<MongoConnectionState>
     val activeConnectionUri: StateFlow<String>
     val expenseDao: ExpenseMongoDao
     val userDao: UserMongoDao
+    val budgetDao: BudgetMongoDao
+    val itemCatalogDao: ItemCatalogMongoDao
 
     suspend fun initialize(appId: String, apiKey: String? = null)
     suspend fun connectWithUri(uri: String): Result<Unit>

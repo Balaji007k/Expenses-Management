@@ -54,11 +54,11 @@ import com.enterprise.expensetracker.core.designsystem.theme.CardBorderDark
 import com.enterprise.expensetracker.core.designsystem.theme.PurpleAi
 import com.enterprise.expensetracker.core.designsystem.theme.RoseAlert
 import com.enterprise.expensetracker.core.designsystem.theme.SlateDark700
-import com.enterprise.expensetracker.core.designsystem.theme.SlateDark800
 import com.enterprise.expensetracker.core.designsystem.theme.TextMutedDark
 import com.enterprise.expensetracker.core.designsystem.theme.TextPrimaryDark
 import com.enterprise.expensetracker.core.model.Category
 import com.enterprise.expensetracker.core.model.Expense
+import com.enterprise.expensetracker.core.model.ExpenseScope
 
 @Composable
 fun ExpensesScreen(
@@ -88,93 +88,24 @@ fun ExpensesScreen(
                 .padding(padding)
         ) {
             ExpenseTopBar(
-                title = if (state.isHeadOfHousehold) "Household Ledger" else "My Personal Ledger",
-                subtitle = if (state.isHeadOfHousehold) "All family members' expenses • Full Access" else "Showing expenses recorded by ${state.currentUser?.name ?: "You"}",
+                title = if (state.isHeadOfHousehold) "Household Ledger" else "Family & Personal Ledger",
+                subtitle = if (state.isHeadOfHousehold) "All family expenses • Full Admin Access" else "Edit enabled for all • Delete reserved for Head",
                 aiProviderName = null,
                 onRefreshClick = { viewModel.dispatchEvent(ExpensesEvent.Refresh) }
             )
 
-            // Family Member Personal Banner (for Member role)
-            if (!state.isHeadOfHousehold && state.currentUser != null) {
-                Box(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(horizontal = 20.dp, vertical = 4.dp)
-                        .clip(RoundedCornerShape(10.dp))
-                        .background(BrandBlue.copy(alpha = 0.15f))
-                        .border(1.dp, BrandBlue.copy(alpha = 0.3f), RoundedCornerShape(10.dp))
-                        .padding(horizontal = 12.dp, vertical = 8.dp)
-                ) {
-                    Text(
-                        text = "👤 Member View: You can add and manage your own household expenses.",
-                        fontSize = 11.sp,
-                        color = TextPrimaryDark,
-                        fontWeight = FontWeight.Medium
-                    )
-                }
-            }
-
-            // Head of Household: Filter by Family Member
-            if (state.isHeadOfHousehold && state.familyMembers.isNotEmpty()) {
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .horizontalScroll(rememberScrollState())
-                        .padding(horizontal = 20.dp, vertical = 4.dp),
-                    horizontalArrangement = Arrangement.spacedBy(8.dp),
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Text(
-                        text = "Filter:",
-                        fontSize = 11.sp,
-                        fontWeight = FontWeight.Bold,
-                        color = TextMutedDark
-                    )
-
-                    val isAllSelected = state.selectedMemberId == null
-                    Box(
-                        modifier = Modifier
-                            .clip(RoundedCornerShape(16.dp))
-                            .background(if (isAllSelected) PurpleAi else SlateDark800)
-                            .clickable { viewModel.dispatchEvent(ExpensesEvent.MemberFilterSelected(null)) }
-                            .padding(horizontal = 12.dp, vertical = 5.dp)
-                    ) {
-                        Text(
-                            text = "👨‍👩‍👧‍👦 All Family",
-                            fontSize = 11.sp,
-                            fontWeight = if (isAllSelected) FontWeight.Bold else FontWeight.Normal,
-                            color = TextPrimaryDark
-                        )
-                    }
-
-                    state.familyMembers.forEach { member ->
-                        val isSelected = state.selectedMemberId == member.id
-                        Box(
-                            modifier = Modifier
-                                .clip(RoundedCornerShape(16.dp))
-                                .background(if (isSelected) PurpleAi else SlateDark800)
-                                .clickable { viewModel.dispatchEvent(ExpensesEvent.MemberFilterSelected(member.id)) }
-                                .padding(horizontal = 12.dp, vertical = 5.dp)
-                        ) {
-                            Text(
-                                text = "${member.name} (${member.relationship.displayName})",
-                                fontSize = 11.sp,
-                                fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal,
-                                color = TextPrimaryDark
-                            )
-                        }
-                    }
-                }
-            }
-
             // Search Bar
-            Box(modifier = Modifier.padding(horizontal = 20.dp, vertical = 4.dp)) {
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 20.dp, vertical = 6.dp)
+            ) {
                 OutlinedTextField(
                     value = state.searchQuery,
                     onValueChange = { viewModel.dispatchEvent(ExpensesEvent.SearchQueryChanged(it)) },
-                    placeholder = { Text("Search groceries, bills, milk, pharmacy...", color = TextMutedDark, fontSize = 14.sp) },
+                    placeholder = { Text("Search by item name, notes, or member...", color = TextMutedDark, fontSize = 14.sp) },
                     leadingIcon = {
-                        Icon(Icons.Default.Search, contentDescription = null, tint = TextMutedDark, modifier = Modifier.size(18.dp))
+                        Icon(Icons.Default.Search, contentDescription = "Search", tint = TextMutedDark, modifier = Modifier.size(20.dp))
                     },
                     singleLine = true,
                     shape = RoundedCornerShape(12.dp),
@@ -190,6 +121,47 @@ fun ExpensesScreen(
                 )
             }
 
+            // Scope Filter (All vs Family Level vs Personal)
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 20.dp, vertical = 2.dp),
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                val isAllScope = state.selectedScope == null
+                Box(
+                    modifier = Modifier
+                        .clip(RoundedCornerShape(8.dp))
+                        .background(if (isAllScope) BrandBlue else SlateDark700.copy(alpha = 0.6f))
+                        .clickable { viewModel.dispatchEvent(ExpensesEvent.ScopeFilterSelected(null)) }
+                        .padding(horizontal = 12.dp, vertical = 6.dp)
+                ) {
+                    Text("All Scopes", fontSize = 11.sp, fontWeight = if (isAllScope) FontWeight.Bold else FontWeight.Normal, color = TextPrimaryDark)
+                }
+
+                val isFamilyScope = state.selectedScope == ExpenseScope.FAMILY
+                Box(
+                    modifier = Modifier
+                        .clip(RoundedCornerShape(8.dp))
+                        .background(if (isFamilyScope) BrandBlue else SlateDark700.copy(alpha = 0.6f))
+                        .clickable { viewModel.dispatchEvent(ExpensesEvent.ScopeFilterSelected(ExpenseScope.FAMILY)) }
+                        .padding(horizontal = 12.dp, vertical = 6.dp)
+                ) {
+                    Text("Family Shared", fontSize = 11.sp, fontWeight = if (isFamilyScope) FontWeight.Bold else FontWeight.Normal, color = TextPrimaryDark)
+                }
+
+                val isPersonalScope = state.selectedScope == ExpenseScope.INDIVIDUAL
+                Box(
+                    modifier = Modifier
+                        .clip(RoundedCornerShape(8.dp))
+                        .background(if (isPersonalScope) PurpleAi else SlateDark700.copy(alpha = 0.6f))
+                        .clickable { viewModel.dispatchEvent(ExpensesEvent.ScopeFilterSelected(ExpenseScope.INDIVIDUAL)) }
+                        .padding(horizontal = 12.dp, vertical = 6.dp)
+                ) {
+                    Text("Personal Only", fontSize = 11.sp, fontWeight = if (isPersonalScope) FontWeight.Bold else FontWeight.Normal, color = TextPrimaryDark)
+                }
+            }
+
             // Category Filter Pills
             Row(
                 modifier = Modifier
@@ -198,7 +170,6 @@ fun ExpensesScreen(
                     .padding(horizontal = 20.dp, vertical = 6.dp),
                 horizontalArrangement = Arrangement.spacedBy(8.dp)
             ) {
-                // "All" filter chip
                 val isAllSelected = state.selectedCategory == null
                 Box(
                     modifier = Modifier
@@ -208,7 +179,7 @@ fun ExpensesScreen(
                         .padding(horizontal = 14.dp, vertical = 7.dp)
                 ) {
                     Text(
-                        text = "All",
+                        text = "All Categories",
                         fontSize = 12.sp,
                         fontWeight = if (isAllSelected) FontWeight.Bold else FontWeight.Normal,
                         color = TextPrimaryDark
@@ -252,6 +223,15 @@ fun ExpensesScreen(
                         ExpenseListItem(
                             expense = expense,
                             canDelete = state.isHeadOfHousehold,
+                            onEdit = {
+                                viewModel.dispatchEvent(ExpensesEvent.StartEditingExpense(expense))
+                            },
+                            onStockEnded = {
+                                viewModel.dispatchEvent(ExpensesEvent.StockEndedSubmitted(expense))
+                            },
+                            onRestock = {
+                                viewModel.dispatchEvent(ExpensesEvent.StartRestockingExpense(expense))
+                            },
                             onDelete = if (state.isHeadOfHousehold) {
                                 { expenseToDelete = expense }
                             } else null
@@ -260,56 +240,98 @@ fun ExpensesScreen(
                 }
             }
         }
+    }
 
-        if (state.isAddDialogOpen) {
-            AddExpenseDialog(
-                onDismiss = { viewModel.dispatchEvent(ExpensesEvent.SetAddDialogVisible(false)) },
-                onConfirm = { title, amount, category, notes ->
-                    viewModel.dispatchEvent(ExpensesEvent.AddExpenseSubmitted(title, amount, category, notes))
+    // Add or Edit Expense Dialog
+    if (state.isAddDialogOpen) {
+        AddExpenseDialog(
+            initialExpense = state.editingExpense,
+            catalogSuggestions = state.catalogSuggestions,
+            onDismiss = { viewModel.dispatchEvent(ExpensesEvent.SetAddDialogVisible(false)) },
+            onConfirm = { title, amount, category, quantity, unit, scope, notes, imageUrl ->
+                if (state.editingExpense != null) {
+                    viewModel.dispatchEvent(
+                        ExpensesEvent.EditExpenseSubmitted(
+                            id = state.editingExpense!!.id,
+                            title = title,
+                            amount = amount,
+                            category = category,
+                            quantity = quantity,
+                            unit = unit,
+                            scope = scope,
+                            notes = notes,
+                            imageUrl = imageUrl
+                        )
+                    )
+                } else {
+                    viewModel.dispatchEvent(
+                        ExpensesEvent.AddExpenseSubmitted(
+                            title = title,
+                            amount = amount,
+                            category = category,
+                            quantity = quantity,
+                            unit = unit,
+                            scope = scope,
+                            notes = notes,
+                            imageUrl = imageUrl
+                        )
+                    )
                 }
-            )
-        }
+            }
+        )
+    }
 
-        if (expenseToDelete != null) {
-            AlertDialog(
-                onDismissRequest = { expenseToDelete = null },
-                containerColor = CardBackgroundDark,
-                title = {
-                    Text(
-                        text = "Delete Expense?",
-                        fontSize = 18.sp,
-                        fontWeight = FontWeight.Bold,
-                        color = TextPrimaryDark
+    // Restock Dialog (with Emptied vs In-Between and Quantity Left input)
+    state.restockingExpense?.let { expense ->
+        RestockDialog(
+            expense = expense,
+            onDismiss = { viewModel.dispatchEvent(ExpensesEvent.StartRestockingExpense(null)) },
+            onConfirm = { reason, quantityRemaining ->
+                viewModel.dispatchEvent(
+                    ExpensesEvent.RestockSubmitted(
+                        expense = expense,
+                        reason = reason,
+                        quantityRemaining = quantityRemaining
                     )
-                },
-                text = {
-                    Text(
-                        text = "Are you sure you want to delete '${expenseToDelete?.title}' (₹${"%,.2f".format(expenseToDelete?.amount ?: 0.0)}) logged by ${expenseToDelete?.createdByUserName}?",
-                        fontSize = 14.sp,
-                        color = TextMutedDark
-                    )
-                },
-                confirmButton = {
-                    Button(
-                        onClick = {
-                            val id = expenseToDelete?.id
-                            expenseToDelete = null
-                            if (id != null) {
-                                viewModel.dispatchEvent(ExpensesEvent.DeleteExpense(id))
-                            }
-                        },
-                        colors = ButtonDefaults.buttonColors(containerColor = RoseAlert),
-                        shape = RoundedCornerShape(8.dp)
-                    ) {
-                        Text("Delete", color = TextPrimaryDark, fontWeight = FontWeight.Bold)
-                    }
-                },
-                dismissButton = {
-                    TextButton(onClick = { expenseToDelete = null }) {
-                        Text("Cancel", color = TextMutedDark)
-                    }
+                )
+            }
+        )
+    }
+
+    // Delete Confirmation Dialog (Head Only)
+    expenseToDelete?.let { expense ->
+        AlertDialog(
+            onDismissRequest = { expenseToDelete = null },
+            containerColor = CardBackgroundDark,
+            title = {
+                Text(
+                    text = "Delete Expense?",
+                    color = TextPrimaryDark,
+                    fontWeight = FontWeight.Bold
+                )
+            },
+            text = {
+                Text(
+                    text = "Are you sure you want to permanently delete '${expense.title}' (${expense.quantity} ${expense.unit}) for ₹${"%,.2f".format(expense.amount)}? This action is exclusive to Head of Household.",
+                    color = TextMutedDark
+                )
+            },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        viewModel.dispatchEvent(ExpensesEvent.DeleteExpense(expense.id))
+                        expenseToDelete = null
+                    },
+                    colors = ButtonDefaults.buttonColors(containerColor = RoseAlert)
+                ) {
+                    Text("Delete", color = TextPrimaryDark)
                 }
-            )
-        }
+            },
+            dismissButton = {
+                TextButton(onClick = { expenseToDelete = null }) {
+                    Text("Cancel", color = TextMutedDark)
+                }
+            }
+        )
     }
 }
