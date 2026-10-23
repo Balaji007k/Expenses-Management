@@ -77,6 +77,17 @@ class AuthRepositoryImpl @Inject constructor(
             mongoDbManager.userDao.deleteUserById("member_user_002")
             mongoDbManager.userDao.deleteUserById("member_user_003")
 
+            // Purge any lingering demo session
+            val currentSessionId = _sessionUserId.value
+            if (!currentSessionId.isNullOrBlank()) {
+                val user = mongoDbManager.userDao.getUserById(currentSessionId)
+                if (user?.email == "google.user@household.in" || user?._id?.startsWith("head_user") == true) {
+                    mongoDbManager.userDao.deleteUserById(currentSessionId)
+                    setSession(null)
+                    _currentUser.value = null
+                }
+            }
+
             // Continuously observe users from MongoDB and update current user based on active session
             combine(
                 mongoDbManager.userDao.getAllUsersFlow(),
@@ -128,28 +139,25 @@ class AuthRepositoryImpl @Inject constructor(
         return withContext(dispatchers.io) {
             try {
                 val cleanEmail = email.trim()
+                if (cleanEmail.isBlank()) {
+                    return@withContext Result.failure(IllegalArgumentException("Email cannot be empty"))
+                }
+                val passwordHash = password.hashCode().toString()
+
                 // Check if user exists in MongoDB
                 var userEntity = mongoDbManager.userDao.getUserByEmail(cleanEmail)
 
-                // Try Firebase Auth if configured
-                firebaseAuth?.let { auth ->
-                    try {
-                        auth.signInWithEmailAndPassword(cleanEmail, password).await()
-                    } catch (fbEx: Exception) {
-                        // Allow login if user already exists in MongoDB
-                        if (userEntity == null) {
-                            throw fbEx
-                        }
+                if (userEntity != null) {
+                    if (!userEntity.passwordHash.isNullOrBlank() && userEntity.passwordHash != passwordHash) {
+                        return@withContext Result.failure(IllegalArgumentException("Incorrect password for $cleanEmail"))
                     }
-                }
-
-                // If not found in MongoDB, create new account in MongoDB
-                if (userEntity == null) {
+                } else {
+                    // Auto-create account directly in MongoDB Atlas
                     val newEntity = UserMongoEntity(
                         _id = UUID.randomUUID().toString(),
                         name = cleanEmail.substringBefore("@").replace(".", " ").capitalizeWords(),
                         email = cleanEmail,
-                        passwordHash = password.hashCode().toString(),
+                        passwordHash = passwordHash,
                         role = UserRole.HEAD_OF_HOUSEHOLD.name,
                         relationship = FamilyRelationship.HEAD.name,
                         familyId = "family_${UUID.randomUUID().toString().take(8)}",
@@ -189,20 +197,6 @@ class AuthRepositoryImpl @Inject constructor(
                     return@withContext Result.failure(IllegalArgumentException("Email is already registered in MongoDB"))
                 }
 
-                // Firebase Auth user registration
-                firebaseAuth?.let { auth ->
-                    try {
-                        val authResult = auth.createUserWithEmailAndPassword(cleanEmail, password).await()
-                        authResult.user?.updateProfile(
-                            UserProfileChangeRequest.Builder()
-                                .setDisplayName(cleanName)
-                                .build()
-                        )?.await()
-                    } catch (_: Exception) {
-                        // In development or test environments, proceed to MongoDB persistence
-                    }
-                }
-
                 val familyId = if (role == UserRole.HEAD_OF_HOUSEHOLD) {
                     "family_${UUID.randomUUID().toString().take(8)}"
                 } else {
@@ -222,7 +216,7 @@ class AuthRepositoryImpl @Inject constructor(
                     updatedAt = System.currentTimeMillis()
                 )
 
-                // Save directly to MongoDB
+                // Save directly to MongoDB Atlas
                 mongoDbManager.userDao.upsertUser(entity)
 
                 val profile = entity.toDomain()
