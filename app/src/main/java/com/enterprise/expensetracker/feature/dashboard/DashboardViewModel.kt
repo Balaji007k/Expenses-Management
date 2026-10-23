@@ -121,6 +121,11 @@ class DashboardViewModel @Inject constructor(
             }
             is DashboardEvent.DeleteExpense -> {
                 viewModelScope.launch {
+                    val user = currentState.currentUser
+                    if (user?.isHeadOfHousehold != true) {
+                        sendEffect(DashboardEffect.ShowToast("Permission denied: Only the Head of Household can delete expenses"))
+                        return@launch
+                    }
                     deleteExpenseUseCase(event.id)
                     sendEffect(DashboardEffect.ShowToast("Expense removed"))
                 }

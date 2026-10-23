@@ -35,6 +35,7 @@ sealed interface FamilyEvent {
     data object SubmitEditProfile : FamilyEvent
 
     data object SignOut : FamilyEvent
+    data object Refresh : FamilyEvent
 }
 
 sealed interface FamilyEffect {

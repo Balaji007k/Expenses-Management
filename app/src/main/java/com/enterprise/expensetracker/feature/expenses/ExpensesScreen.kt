@@ -22,6 +22,9 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Search
+import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
@@ -29,8 +32,12 @@ import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -45,11 +52,13 @@ import com.enterprise.expensetracker.core.designsystem.theme.BrandBlue
 import com.enterprise.expensetracker.core.designsystem.theme.CardBackgroundDark
 import com.enterprise.expensetracker.core.designsystem.theme.CardBorderDark
 import com.enterprise.expensetracker.core.designsystem.theme.PurpleAi
+import com.enterprise.expensetracker.core.designsystem.theme.RoseAlert
 import com.enterprise.expensetracker.core.designsystem.theme.SlateDark700
 import com.enterprise.expensetracker.core.designsystem.theme.SlateDark800
 import com.enterprise.expensetracker.core.designsystem.theme.TextMutedDark
 import com.enterprise.expensetracker.core.designsystem.theme.TextPrimaryDark
 import com.enterprise.expensetracker.core.model.Category
+import com.enterprise.expensetracker.core.model.Expense
 
 @Composable
 fun ExpensesScreen(
@@ -57,6 +66,7 @@ fun ExpensesScreen(
     modifier: Modifier = Modifier
 ) {
     val state by viewModel.uiState.collectAsStateWithLifecycle()
+    var expenseToDelete by remember { mutableStateOf<Expense?>(null) }
 
     Scaffold(
         floatingActionButton = {
@@ -80,7 +90,8 @@ fun ExpensesScreen(
             ExpenseTopBar(
                 title = if (state.isHeadOfHousehold) "Household Ledger" else "My Personal Ledger",
                 subtitle = if (state.isHeadOfHousehold) "All family members' expenses • Full Access" else "Showing expenses recorded by ${state.currentUser?.name ?: "You"}",
-                aiProviderName = null
+                aiProviderName = null,
+                onRefreshClick = { viewModel.dispatchEvent(ExpensesEvent.Refresh) }
             )
 
             // Family Member Personal Banner (for Member role)
@@ -238,7 +249,13 @@ fun ExpensesScreen(
                     verticalArrangement = Arrangement.spacedBy(10.dp)
                 ) {
                     items(state.filteredExpenses, key = { it.id }) { expense ->
-                        ExpenseListItem(expense = expense)
+                        ExpenseListItem(
+                            expense = expense,
+                            canDelete = state.isHeadOfHousehold,
+                            onDelete = if (state.isHeadOfHousehold) {
+                                { expenseToDelete = expense }
+                            } else null
+                        )
                     }
                 }
             }
@@ -249,6 +266,48 @@ fun ExpensesScreen(
                 onDismiss = { viewModel.dispatchEvent(ExpensesEvent.SetAddDialogVisible(false)) },
                 onConfirm = { title, amount, category, notes ->
                     viewModel.dispatchEvent(ExpensesEvent.AddExpenseSubmitted(title, amount, category, notes))
+                }
+            )
+        }
+
+        if (expenseToDelete != null) {
+            AlertDialog(
+                onDismissRequest = { expenseToDelete = null },
+                containerColor = CardBackgroundDark,
+                title = {
+                    Text(
+                        text = "Delete Expense?",
+                        fontSize = 18.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = TextPrimaryDark
+                    )
+                },
+                text = {
+                    Text(
+                        text = "Are you sure you want to delete '${expenseToDelete?.title}' (₹${"%,.2f".format(expenseToDelete?.amount ?: 0.0)}) logged by ${expenseToDelete?.createdByUserName}?",
+                        fontSize = 14.sp,
+                        color = TextMutedDark
+                    )
+                },
+                confirmButton = {
+                    Button(
+                        onClick = {
+                            val id = expenseToDelete?.id
+                            expenseToDelete = null
+                            if (id != null) {
+                                viewModel.dispatchEvent(ExpensesEvent.DeleteExpense(id))
+                            }
+                        },
+                        colors = ButtonDefaults.buttonColors(containerColor = RoseAlert),
+                        shape = RoundedCornerShape(8.dp)
+                    ) {
+                        Text("Delete", color = TextPrimaryDark, fontWeight = FontWeight.Bold)
+                    }
+                },
+                dismissButton = {
+                    TextButton(onClick = { expenseToDelete = null }) {
+                        Text("Cancel", color = TextMutedDark)
+                    }
                 }
             )
         }

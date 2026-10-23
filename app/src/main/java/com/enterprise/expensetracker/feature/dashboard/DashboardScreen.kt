@@ -20,12 +20,14 @@ import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.CloudSync
 import androidx.compose.material.icons.filled.CreditCard
 import androidx.compose.material.icons.filled.TrendingUp
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -43,9 +45,13 @@ import com.enterprise.expensetracker.core.designsystem.components.ExpenseListIte
 import com.enterprise.expensetracker.core.designsystem.components.ExpenseTopBar
 import com.enterprise.expensetracker.core.designsystem.components.SummaryMetricCard
 import com.enterprise.expensetracker.core.designsystem.theme.BrandBlue
+import com.enterprise.expensetracker.core.designsystem.theme.CardBackgroundDark
 import com.enterprise.expensetracker.core.designsystem.theme.EmeraldSuccess
 import com.enterprise.expensetracker.core.designsystem.theme.PurpleAi
+import com.enterprise.expensetracker.core.designsystem.theme.RoseAlert
+import com.enterprise.expensetracker.core.designsystem.theme.TextMutedDark
 import com.enterprise.expensetracker.core.designsystem.theme.TextPrimaryDark
+import com.enterprise.expensetracker.core.model.Expense
 import com.enterprise.expensetracker.feature.expenses.AddExpenseDialog
 
 @Composable
@@ -57,9 +63,11 @@ fun DashboardScreen(
 ) {
     val state by viewModel.uiState.collectAsStateWithLifecycle()
     var isAddDialogOpen by remember { mutableStateOf(false) }
+    var expenseToDelete by remember { mutableStateOf<Expense?>(null) }
 
+    val isHead = state.currentUser?.isHeadOfHousehold == true
     val userTitle = state.currentUser?.name ?: "Household"
-    val userSubtitle = if (state.currentUser?.isHeadOfHousehold == true) {
+    val userSubtitle = if (isHead) {
         "👑 Head of Household • Full Access"
     } else if (state.currentUser != null) {
         "👤 ${state.currentUser?.relationship?.displayName ?: "Member"} • My Expenses"
@@ -75,7 +83,8 @@ fun DashboardScreen(
         ExpenseTopBar(
             title = "$userTitle's Home",
             subtitle = userSubtitle,
-            aiProviderName = state.activeAiEngine
+            aiProviderName = state.activeAiEngine,
+            onRefreshClick = { viewModel.dispatchEvent(DashboardEvent.RefreshData) }
         )
 
         LazyColumn(
@@ -179,7 +188,13 @@ fun DashboardScreen(
                 }
             } else {
                 items(state.recentExpenses, key = { it.id }) { expense ->
-                    ExpenseListItem(expense = expense)
+                    ExpenseListItem(
+                        expense = expense,
+                        canDelete = isHead,
+                        onDelete = if (isHead) {
+                            { expenseToDelete = expense }
+                        } else null
+                    )
                 }
             }
         }
@@ -191,6 +206,48 @@ fun DashboardScreen(
             onConfirm = { title, amount, category, notes ->
                 viewModel.dispatchEvent(DashboardEvent.AddExpenseSubmitted(title, amount, category, notes))
                 isAddDialogOpen = false
+            }
+        )
+    }
+
+    if (expenseToDelete != null) {
+        AlertDialog(
+            onDismissRequest = { expenseToDelete = null },
+            containerColor = CardBackgroundDark,
+            title = {
+                Text(
+                    text = "Delete Expense?",
+                    fontSize = 18.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = TextPrimaryDark
+                )
+            },
+            text = {
+                Text(
+                    text = "Are you sure you want to delete '${expenseToDelete?.title}' (₹${"%,.2f".format(expenseToDelete?.amount ?: 0.0)})?",
+                    fontSize = 14.sp,
+                    color = TextMutedDark
+                )
+            },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        val id = expenseToDelete?.id
+                        expenseToDelete = null
+                        if (id != null) {
+                            viewModel.dispatchEvent(DashboardEvent.DeleteExpense(id))
+                        }
+                    },
+                    colors = ButtonDefaults.buttonColors(containerColor = RoseAlert),
+                    shape = RoundedCornerShape(8.dp)
+                ) {
+                    Text("Delete", color = TextPrimaryDark, fontWeight = FontWeight.Bold)
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { expenseToDelete = null }) {
+                    Text("Cancel", color = TextMutedDark)
+                }
             }
         )
     }

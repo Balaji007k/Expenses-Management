@@ -14,6 +14,7 @@ import com.enterprise.expensetracker.domain.usecase.GetCurrentUserUseCase
 import com.enterprise.expensetracker.domain.usecase.GetDynamicConfigUseCase
 import com.enterprise.expensetracker.domain.usecase.GetExpensesUseCase
 import com.enterprise.expensetracker.domain.usecase.GetFamilyMembersUseCase
+import com.enterprise.expensetracker.domain.usecase.SyncExpensesUseCase
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.launch
@@ -26,7 +27,8 @@ class ExpensesViewModel @Inject constructor(
     private val deleteExpenseUseCase: DeleteExpenseUseCase,
     private val getDynamicConfigUseCase: GetDynamicConfigUseCase,
     private val getCurrentUserUseCase: GetCurrentUserUseCase,
-    private val getFamilyMembersUseCase: GetFamilyMembersUseCase
+    private val getFamilyMembersUseCase: GetFamilyMembersUseCase,
+    private val syncExpensesUseCase: SyncExpensesUseCase
 ) : BaseViewModel<ExpensesState, ExpensesEvent, ExpensesEffect>(ExpensesState()) {
 
     init {
@@ -130,18 +132,23 @@ class ExpensesViewModel @Inject constructor(
             is ExpensesEvent.DeleteExpense -> {
                 viewModelScope.launch {
                     val user = currentState.currentUser
-                    val expenseToDelete = currentState.expenses.firstOrNull { it.id == event.id }
-
-                    // Member can only delete their own expenses; Head can delete any
-                    if (user?.role == UserRole.FAMILY_MEMBER) {
-                        if (expenseToDelete != null && expenseToDelete.createdByUserId != user.id && !expenseToDelete.createdByUserName.equals(user.name, ignoreCase = true)) {
-                            sendEffect(ExpensesEffect.ShowMessage("Permission denied: You can only delete your own expenses"))
-                            return@launch
-                        }
+                    if (user?.isHeadOfHousehold != true) {
+                        sendEffect(ExpensesEffect.ShowMessage("Permission denied: Only the Head of Household can delete expenses"))
+                        return@launch
                     }
 
                     deleteExpenseUseCase(event.id)
                     sendEffect(ExpensesEffect.ShowMessage("Expense deleted"))
+                }
+            }
+            is ExpensesEvent.Refresh -> {
+                viewModelScope.launch {
+                    val result = syncExpensesUseCase()
+                    if (result.isSuccess) {
+                        sendEffect(ExpensesEffect.ShowMessage("Expenses refreshed from MongoDB Atlas"))
+                    } else {
+                        sendEffect(ExpensesEffect.ShowMessage("Expenses refreshed"))
+                    }
                 }
             }
         }

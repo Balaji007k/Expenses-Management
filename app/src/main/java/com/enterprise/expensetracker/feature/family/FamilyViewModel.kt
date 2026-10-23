@@ -8,6 +8,7 @@ import com.enterprise.expensetracker.domain.usecase.GetExpensesUseCase
 import com.enterprise.expensetracker.domain.usecase.GetFamilyMembersUseCase
 import com.enterprise.expensetracker.domain.usecase.LogoutUseCase
 import com.enterprise.expensetracker.domain.usecase.RemoveFamilyMemberUseCase
+import com.enterprise.expensetracker.domain.usecase.SyncExpensesUseCase
 import com.enterprise.expensetracker.domain.usecase.UpdateProfileUseCase
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.combine
@@ -22,7 +23,8 @@ class FamilyViewModel @Inject constructor(
     private val removeFamilyMemberUseCase: RemoveFamilyMemberUseCase,
     private val updateProfileUseCase: UpdateProfileUseCase,
     private val getExpensesUseCase: GetExpensesUseCase,
-    private val logoutUseCase: LogoutUseCase
+    private val logoutUseCase: LogoutUseCase,
+    private val syncExpensesUseCase: SyncExpensesUseCase
 ) : BaseViewModel<FamilyState, FamilyEvent, FamilyEffect>(FamilyState()) {
 
     init {
@@ -87,6 +89,16 @@ class FamilyViewModel @Inject constructor(
             is FamilyEvent.SubmitEditProfile -> handleEditProfile()
 
             is FamilyEvent.SignOut -> handleSignOut()
+            is FamilyEvent.Refresh -> {
+                viewModelScope.launch {
+                    val result = syncExpensesUseCase()
+                    if (result.isSuccess) {
+                        sendEffect(FamilyEffect.ShowToast("Family roster synced from MongoDB Atlas"))
+                    } else {
+                        sendEffect(FamilyEffect.ShowToast("Family roster refreshed"))
+                    }
+                }
+            }
         }
     }
 

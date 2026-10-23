@@ -74,7 +74,8 @@ fun SettingsScreen(
         ExpenseTopBar(
             title = "Settings",
             subtitle = "Household preferences & account session",
-            aiProviderName = null
+            aiProviderName = null,
+            onRefreshClick = { viewModel.dispatchEvent(SettingsEvent.SyncMongoAtlas) }
         )
 
         LazyColumn(

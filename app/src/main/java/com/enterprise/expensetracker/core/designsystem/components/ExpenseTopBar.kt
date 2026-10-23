@@ -9,10 +9,13 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.AutoAwesome
+import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -22,6 +25,8 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.enterprise.expensetracker.core.designsystem.theme.BrandBlue
+import com.enterprise.expensetracker.core.designsystem.theme.CardBackgroundDark
 import com.enterprise.expensetracker.core.designsystem.theme.PurpleAi
 import com.enterprise.expensetracker.core.designsystem.theme.TextMutedDark
 import com.enterprise.expensetracker.core.designsystem.theme.TextPrimaryDark
@@ -31,6 +36,7 @@ fun ExpenseTopBar(
     title: String,
     subtitle: String? = null,
     aiProviderName: String? = "AI Advisor",
+    onRefreshClick: (() -> Unit)? = null,
     modifier: Modifier = Modifier
 ) {
     Column(
@@ -60,27 +66,49 @@ fun ExpenseTopBar(
                 }
             }
 
-            if (aiProviderName != null) {
-                Row(
-                    modifier = Modifier
-                        .clip(RoundedCornerShape(20.dp))
-                        .background(PurpleAi.copy(alpha = 0.15f))
-                        .padding(horizontal = 10.dp, vertical = 5.dp),
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Icon(
-                        imageVector = Icons.Default.AutoAwesome,
-                        contentDescription = "AI",
-                        tint = PurpleAi,
-                        modifier = Modifier.size(13.dp)
-                    )
-                    Spacer(modifier = Modifier.width(4.dp))
-                    Text(
-                        text = aiProviderName,
-                        fontSize = 11.sp,
-                        fontWeight = FontWeight.SemiBold,
-                        color = PurpleAi
-                    )
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                if (aiProviderName != null) {
+                    Row(
+                        modifier = Modifier
+                            .clip(RoundedCornerShape(20.dp))
+                            .background(PurpleAi.copy(alpha = 0.15f))
+                            .padding(horizontal = 10.dp, vertical = 5.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.AutoAwesome,
+                            contentDescription = "AI",
+                            tint = PurpleAi,
+                            modifier = Modifier.size(13.dp)
+                        )
+                        Spacer(modifier = Modifier.width(4.dp))
+                        Text(
+                            text = aiProviderName,
+                            fontSize = 11.sp,
+                            fontWeight = FontWeight.SemiBold,
+                            color = PurpleAi
+                        )
+                    }
+                }
+
+                if (onRefreshClick != null) {
+                    IconButton(
+                        onClick = onRefreshClick,
+                        modifier = Modifier
+                            .size(36.dp)
+                            .clip(CircleShape)
+                            .background(CardBackgroundDark)
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Refresh,
+                            contentDescription = "Refresh Data",
+                            tint = BrandBlue,
+                            modifier = Modifier.size(18.dp)
+                        )
+                    }
                 }
             }
         }

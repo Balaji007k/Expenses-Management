@@ -64,7 +64,8 @@ fun InsightsScreen(
         ExpenseTopBar(
             title = "AI Predictions & Insights",
             subtitle = "Forecasting powered by ${state.activeAiProvider}",
-            aiProviderName = state.activeAiProvider
+            aiProviderName = state.activeAiProvider,
+            onRefreshClick = { viewModel.dispatchEvent(InsightsEvent.RefreshInsights) }
         )
 
         if (state.isLoading) {

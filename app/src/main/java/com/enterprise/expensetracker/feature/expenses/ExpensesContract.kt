@@ -27,6 +27,7 @@ sealed interface ExpensesEvent {
     data class AddExpenseSubmitted(val title: String, val amount: Double, val category: Category, val notes: String?) : ExpensesEvent
     data class DeleteExpense(val id: String) : ExpensesEvent
     data class SetAddDialogVisible(val isVisible: Boolean) : ExpensesEvent
+    data object Refresh : ExpensesEvent
 }
 
 sealed interface ExpensesEffect {

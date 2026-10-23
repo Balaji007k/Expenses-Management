@@ -17,7 +17,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Bolt
 import androidx.compose.material.icons.filled.Build
 import androidx.compose.material.icons.filled.Category
-import androidx.compose.material.icons.filled.Check
+import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.DirectionsCar
 import androidx.compose.material.icons.filled.Home
 import androidx.compose.material.icons.filled.LocalHospital
@@ -27,6 +27,7 @@ import androidx.compose.material.icons.filled.ShoppingBag
 import androidx.compose.material.icons.filled.ShoppingBasket
 import androidx.compose.material.icons.filled.Wifi
 import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
@@ -40,7 +41,7 @@ import androidx.compose.ui.unit.sp
 import com.enterprise.expensetracker.core.designsystem.theme.BrandBlue
 import com.enterprise.expensetracker.core.designsystem.theme.CardBackgroundDark
 import com.enterprise.expensetracker.core.designsystem.theme.CardBorderDark
-import com.enterprise.expensetracker.core.designsystem.theme.EmeraldSuccess
+import com.enterprise.expensetracker.core.designsystem.theme.RoseAlert
 import com.enterprise.expensetracker.core.designsystem.theme.TextMutedDark
 import com.enterprise.expensetracker.core.designsystem.theme.TextPrimaryDark
 import com.enterprise.expensetracker.core.model.Category
@@ -52,6 +53,8 @@ import java.util.Locale
 @Composable
 fun ExpenseListItem(
     expense: Expense,
+    canDelete: Boolean = false,
+    onDelete: (() -> Unit)? = null,
     onClick: () -> Unit = {},
     modifier: Modifier = Modifier
 ) {
@@ -130,21 +133,40 @@ fun ExpenseListItem(
                 }
             }
 
-            // Amount
-            Column(horizontalAlignment = Alignment.End) {
-                Text(
-                    text = "${expense.currency.symbol}${String.format(Locale.US, "%.2f", expense.amount)}",
-                    fontSize = 16.sp,
-                    fontWeight = FontWeight.Bold,
-                    color = TextPrimaryDark
-                )
-                if (!expense.notes.isNullOrBlank()) {
+            // Amount and Delete Action (Head Only)
+            Row(
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Column(horizontalAlignment = Alignment.End) {
                     Text(
-                        text = expense.notes!!,
-                        fontSize = 11.sp,
-                        color = TextMutedDark,
-                        maxLines = 1
+                        text = "${expense.currency.symbol}${String.format(Locale.US, "%.2f", expense.amount)}",
+                        fontSize = 16.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = TextPrimaryDark
                     )
+                    if (!expense.notes.isNullOrBlank()) {
+                        Text(
+                            text = expense.notes!!,
+                            fontSize = 11.sp,
+                            color = TextMutedDark,
+                            maxLines = 1
+                        )
+                    }
+                }
+
+                if (canDelete && onDelete != null) {
+                    Spacer(modifier = Modifier.width(6.dp))
+                    IconButton(
+                        onClick = onDelete,
+                        modifier = Modifier.size(34.dp)
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Delete,
+                            contentDescription = "Delete Expense (Head Only)",
+                            tint = RoseAlert.copy(alpha = 0.85f),
+                            modifier = Modifier.size(18.dp)
+                        )
+                    }
                 }
             }
         }

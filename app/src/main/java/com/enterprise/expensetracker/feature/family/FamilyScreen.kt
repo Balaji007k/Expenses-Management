@@ -99,7 +99,8 @@ fun FamilyScreen(
         ExpenseTopBar(
             title = if (isHead) "Family Management" else "My Family Profile",
             subtitle = if (isHead) "Manage household members & permissions" else "Household member profile",
-            aiProviderName = null
+            aiProviderName = null,
+            onRefreshClick = { viewModel.dispatchEvent(FamilyEvent.Refresh) }
         )
 
         LazyColumn(
