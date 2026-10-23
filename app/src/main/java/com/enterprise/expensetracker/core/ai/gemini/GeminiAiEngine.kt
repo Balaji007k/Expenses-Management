@@ -90,12 +90,16 @@ class GeminiAiEngine @Inject constructor(
         return withContext(dispatchers.io) {
             val lower = title.lowercase()
             val category = when {
-                lower.contains("uber") || lower.contains("flight") || lower.contains("gas") || lower.contains("train") -> Category.TRAVEL_AND_TRANSPORT
-                lower.contains("coffee") || lower.contains("dinner") || lower.contains("lunch") || lower.contains("burger") -> Category.FOOD_AND_DINING
-                lower.contains("aws") || lower.contains("github") || lower.contains("cloud") || lower.contains("software") -> Category.SOFTWARE_AND_TECH
-                lower.contains("doctor") || lower.contains("pharmacy") || lower.contains("gym") -> Category.HEALTH_AND_WELLNESS
-                lower.contains("netflix") || lower.contains("movie") || lower.contains("spotify") -> Category.ENTERTAINMENT
-                lower.contains("desk") || lower.contains("monitor") || lower.contains("chair") -> Category.OFFICE_AND_EQUIPMENT
+                lower.contains("milk") || lower.contains("grocery") || lower.contains("vegetable") || lower.contains("fruit") || lower.contains("food") -> Category.GROCERIES_AND_FOOD
+                lower.contains("rent") || lower.contains("mortgage") || lower.contains("housing") -> Category.RENT_AND_HOUSING
+                lower.contains("electric") || lower.contains("power") || lower.contains("gas") || lower.contains("water") -> Category.UTILITIES_AND_BILLS
+                lower.contains("wifi") || lower.contains("internet") || lower.contains("mobile") || lower.contains("recharge") -> Category.INTERNET_AND_MOBILE
+                lower.contains("school") || lower.contains("tuition") || lower.contains("book") || lower.contains("kid") -> Category.KIDS_AND_EDUCATION
+                lower.contains("doctor") || lower.contains("pharmacy") || lower.contains("medicine") || lower.contains("hospital") -> Category.HEALTH_AND_MEDICINE
+                lower.contains("repair") || lower.contains("plumb") || lower.contains("maid") || lower.contains("clean") -> Category.HOME_MAINTENANCE
+                lower.contains("clothes") || lower.contains("shirt") || lower.contains("shopping") || lower.contains("dress") -> Category.SHOPPING_AND_CLOTHING
+                lower.contains("fuel") || lower.contains("petrol") || lower.contains("diesel") || lower.contains("cab") -> Category.TRAVEL_AND_FUEL
+                lower.contains("dinner") || lower.contains("lunch") || lower.contains("restaurant") || lower.contains("snack") -> Category.DINING_AND_OUTING
                 else -> Category.MISCELLANEOUS
             }
             Result.success(category)

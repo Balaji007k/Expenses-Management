@@ -10,15 +10,11 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.AutoAwesome
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
-import androidx.compose.material3.Icon
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Text
@@ -39,7 +35,6 @@ import androidx.compose.ui.unit.sp
 import com.enterprise.expensetracker.core.designsystem.theme.BrandBlue
 import com.enterprise.expensetracker.core.designsystem.theme.CardBackgroundDark
 import com.enterprise.expensetracker.core.designsystem.theme.CardBorderDark
-import com.enterprise.expensetracker.core.designsystem.theme.PurpleAi
 import com.enterprise.expensetracker.core.designsystem.theme.SlateDark700
 import com.enterprise.expensetracker.core.designsystem.theme.TextMutedDark
 import com.enterprise.expensetracker.core.designsystem.theme.TextPrimaryDark
@@ -52,7 +47,7 @@ fun AddExpenseDialog(
 ) {
     var title by remember { mutableStateOf("") }
     var amountText by remember { mutableStateOf("") }
-    var selectedCategory by remember { mutableStateOf(Category.FOOD_AND_DINING) }
+    var selectedCategory by remember { mutableStateOf(Category.GROCERIES_AND_FOOD) }
     var notes by remember { mutableStateOf("") }
     var errorMessage by remember { mutableStateOf<String?>(null) }
 
@@ -61,7 +56,7 @@ fun AddExpenseDialog(
         containerColor = CardBackgroundDark,
         title = {
             Text(
-                text = "New Enterprise Expense",
+                text = "Add Home Expense",
                 fontSize = 18.sp,
                 fontWeight = FontWeight.Bold,
                 color = TextPrimaryDark
@@ -75,7 +70,7 @@ fun AddExpenseDialog(
                 OutlinedTextField(
                     value = title,
                     onValueChange = { title = it },
-                    label = { Text("Expense Title (e.g. AWS Cloud, Client Dinner)") },
+                    label = { Text("Title (e.g. Supermarket, Power Bill, Milk)") },
                     singleLine = true,
                     colors = OutlinedTextFieldDefaults.colors(
                         focusedTextColor = TextPrimaryDark,
@@ -107,16 +102,16 @@ fun AddExpenseDialog(
                     color = TextMutedDark
                 )
 
-                // Quick Category Selector
+                // Quick Category Selector for Home Expenses
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.spacedBy(6.dp)
                 ) {
                     val quickCategories = listOf(
-                        Category.SOFTWARE_AND_TECH,
-                        Category.TRAVEL_AND_TRANSPORT,
-                        Category.FOOD_AND_DINING,
-                        Category.OFFICE_AND_EQUIPMENT
+                        Category.GROCERIES_AND_FOOD,
+                        Category.UTILITIES_AND_BILLS,
+                        Category.INTERNET_AND_MOBILE,
+                        Category.RENT_AND_HOUSING
                     )
                     quickCategories.forEach { category ->
                         val isSelected = selectedCategory == category
@@ -130,7 +125,51 @@ fun AddExpenseDialog(
                             contentAlignment = Alignment.Center
                         ) {
                             Text(
-                                text = category.displayName.split(" ").first(),
+                                text = when (category) {
+                                    Category.GROCERIES_AND_FOOD -> "Groceries"
+                                    Category.UTILITIES_AND_BILLS -> "Bills"
+                                    Category.INTERNET_AND_MOBILE -> "Wi-Fi"
+                                    Category.RENT_AND_HOUSING -> "Rent"
+                                    else -> category.displayName
+                                },
+                                fontSize = 11.sp,
+                                fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal,
+                                color = TextPrimaryDark
+                            )
+                        }
+                    }
+                }
+
+                // Second row of categories
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(6.dp)
+                ) {
+                    val secondaryCategories = listOf(
+                        Category.KIDS_AND_EDUCATION,
+                        Category.HEALTH_AND_MEDICINE,
+                        Category.DINING_AND_OUTING,
+                        Category.SHOPPING_AND_CLOTHING
+                    )
+                    secondaryCategories.forEach { category ->
+                        val isSelected = selectedCategory == category
+                        Box(
+                            modifier = Modifier
+                                .weight(1f)
+                                .clip(RoundedCornerShape(8.dp))
+                                .background(if (isSelected) BrandBlue else SlateDark700)
+                                .clickable { selectedCategory = category }
+                                .padding(vertical = 8.dp),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Text(
+                                text = when (category) {
+                                    Category.KIDS_AND_EDUCATION -> "School"
+                                    Category.HEALTH_AND_MEDICINE -> "Health"
+                                    Category.DINING_AND_OUTING -> "Dining"
+                                    Category.SHOPPING_AND_CLOTHING -> "Clothes"
+                                    else -> category.displayName
+                                },
                                 fontSize = 11.sp,
                                 fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal,
                                 color = TextPrimaryDark
@@ -142,7 +181,7 @@ fun AddExpenseDialog(
                 OutlinedTextField(
                     value = notes,
                     onValueChange = { notes = it },
-                    label = { Text("Internal Audit Notes (Optional)") },
+                    label = { Text("Family Notes (Optional)") },
                     maxLines = 2,
                     colors = OutlinedTextFieldDefaults.colors(
                         focusedTextColor = TextPrimaryDark,
@@ -163,7 +202,7 @@ fun AddExpenseDialog(
                 onClick = {
                     val parsedAmount = amountText.toDoubleOrNull()
                     if (title.isBlank()) {
-                        errorMessage = "Please enter an expense title"
+                        errorMessage = "Please enter an expense name"
                     } else if (parsedAmount == null || parsedAmount <= 0) {
                         errorMessage = "Please enter a valid amount"
                     } else {
@@ -172,7 +211,7 @@ fun AddExpenseDialog(
                 },
                 colors = ButtonDefaults.buttonColors(containerColor = BrandBlue)
             ) {
-                Text("Record Expense", color = TextPrimaryDark)
+                Text("Save Expense", color = TextPrimaryDark)
             }
         },
         dismissButton = {

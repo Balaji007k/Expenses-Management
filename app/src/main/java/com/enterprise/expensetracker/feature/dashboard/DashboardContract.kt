@@ -6,18 +6,17 @@ import com.enterprise.expensetracker.core.model.ai.AiInsight
 data class DashboardState(
     val isLoading: Boolean = false,
     val totalSpendThisMonth: Double = 0.0,
-    val monthlyBudget: Double = 5000.0,
+    val monthlyBudget: Double = 2500.0,
     val predictedEndOfMonthSpend: Double = 0.0,
     val recentExpenses: List<Expense> = emptyList(),
     val featuredInsight: AiInsight? = null,
-    val activeAiEngine: String = "Gemini Pro",
-    val mongoSyncState: String = "Connected",
+    val activeAiEngine: String = "AI Advisor",
     val currencySymbol: String = "$"
 )
 
 sealed interface DashboardEvent {
     data object RefreshData : DashboardEvent
-    data object TriggerMongoSync : DashboardEvent
+    data object SyncData : DashboardEvent
     data object AddDemoExpense : DashboardEvent
     data class DeleteExpense(val id: String) : DashboardEvent
 }

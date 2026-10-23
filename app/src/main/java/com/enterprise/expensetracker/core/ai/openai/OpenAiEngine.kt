@@ -81,10 +81,16 @@ class OpenAiEngine @Inject constructor(
         return withContext(dispatchers.io) {
             val lower = title.lowercase()
             val category = when {
-                lower.contains("hotel") || lower.contains("flight") || lower.contains("airline") -> Category.TRAVEL_AND_TRANSPORT
-                lower.contains("software") || lower.contains("license") || lower.contains("saas") -> Category.SOFTWARE_AND_TECH
-                lower.contains("lunch") || lower.contains("restaurant") || lower.contains("food") -> Category.FOOD_AND_DINING
-                lower.contains("printer") || lower.contains("paper") || lower.contains("supplies") -> Category.OFFICE_AND_EQUIPMENT
+                lower.contains("milk") || lower.contains("grocery") || lower.contains("vegetable") || lower.contains("food") -> Category.GROCERIES_AND_FOOD
+                lower.contains("rent") || lower.contains("mortgage") || lower.contains("apartment") -> Category.RENT_AND_HOUSING
+                lower.contains("electric") || lower.contains("water") || lower.contains("gas") || lower.contains("bill") -> Category.UTILITIES_AND_BILLS
+                lower.contains("wifi") || lower.contains("internet") || lower.contains("mobile") -> Category.INTERNET_AND_MOBILE
+                lower.contains("school") || lower.contains("fee") || lower.contains("tuition") || lower.contains("kid") -> Category.KIDS_AND_EDUCATION
+                lower.contains("doctor") || lower.contains("medicine") || lower.contains("pharmacy") -> Category.HEALTH_AND_MEDICINE
+                lower.contains("repair") || lower.contains("plumbing") || lower.contains("maid") -> Category.HOME_MAINTENANCE
+                lower.contains("clothes") || lower.contains("dress") || lower.contains("shopping") -> Category.SHOPPING_AND_CLOTHING
+                lower.contains("petrol") || lower.contains("fuel") || lower.contains("bus") || lower.contains("cab") -> Category.TRAVEL_AND_FUEL
+                lower.contains("dinner") || lower.contains("treat") || lower.contains("restaurant") -> Category.DINING_AND_OUTING
                 else -> Category.MISCELLANEOUS
             }
             Result.success(category)

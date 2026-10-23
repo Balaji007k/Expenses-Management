@@ -28,6 +28,8 @@ class DashboardViewModel @Inject constructor(
     private val syncExpensesUseCase: SyncExpensesUseCase
 ) : BaseViewModel<DashboardState, DashboardEvent, DashboardEffect>(DashboardState()) {
 
+    private var demoIndex = 0
+
     init {
         loadData()
     }
@@ -40,8 +42,6 @@ class DashboardViewModel @Inject constructor(
                 getExpensesUseCase(),
                 getDynamicConfigUseCase.observeConfig()
             ) { expenses, config ->
-                val total = expenses.sumOf { it.amount }
-                val currency = Currency.fromCode(config.defaultCurrencyCode)
                 Pair(expenses, config)
             }.collect { (expenses, config) ->
                 val total = expenses.sumOf { it.amount }
@@ -61,7 +61,7 @@ class DashboardViewModel @Inject constructor(
             }
         }
 
-        // Fetch AI prediction & anomaly insights
+        // Fetch home AI budget recommendations & alerts
         viewModelScope.launch {
             getAiInsightsUseCase.getAnomalies().collect { res ->
                 if (res is Resource.Success && res.data.isNotEmpty()) {
@@ -76,34 +76,63 @@ class DashboardViewModel @Inject constructor(
             is DashboardEvent.RefreshData -> {
                 viewModelScope.launch {
                     getDynamicConfigUseCase.refresh()
-                    sendEffect(DashboardEffect.ShowToast("Refreshed Firebase configuration"))
+                    sendEffect(DashboardEffect.ShowToast("Refreshed cloud configuration"))
                 }
             }
-            is DashboardEvent.TriggerMongoSync -> {
+            is DashboardEvent.SyncData -> {
                 viewModelScope.launch {
-                    setState { copy(mongoSyncState = "Syncing...") }
                     val result = syncExpensesUseCase()
                     if (result.isSuccess) {
-                        setState { copy(mongoSyncState = "Synced") }
-                        sendEffect(DashboardEffect.ShowToast("MongoDB Atlas sync complete"))
+                        sendEffect(DashboardEffect.ShowToast("Cloud sync complete"))
                     } else {
-                        setState { copy(mongoSyncState = "Offline") }
-                        sendEffect(DashboardEffect.ShowToast("Sync queued for background execution"))
+                        sendEffect(DashboardEffect.ShowToast("Sync queued for background"))
                     }
                 }
             }
             is DashboardEvent.AddDemoExpense -> {
                 viewModelScope.launch {
-                    val demo = Expense(
-                        title = "AWS Cloud Infrastructure",
-                        amount = 349.50,
-                        category = Category.SOFTWARE_AND_TECH,
-                        currency = Currency.USD,
-                        isRecurring = true,
-                        syncStatus = SyncStatus.PENDING_SYNC
+                    val homeDemoList = listOf(
+                        Expense(
+                            title = "Weekly Groceries & Vegetables",
+                            amount = 142.50,
+                            category = Category.GROCERIES_AND_FOOD,
+                            notes = "Supermarket fresh food and dairy",
+                            syncStatus = SyncStatus.PENDING_SYNC
+                        ),
+                        Expense(
+                            title = "Electricity & Water Bill",
+                            amount = 78.00,
+                            category = Category.UTILITIES_AND_BILLS,
+                            notes = "Monthly state power board",
+                            syncStatus = SyncStatus.PENDING_SYNC
+                        ),
+                        Expense(
+                            title = "Home High-Speed Wi-Fi",
+                            amount = 45.00,
+                            category = Category.INTERNET_AND_MOBILE,
+                            notes = "Fiber broadband monthly bill",
+                            syncStatus = SyncStatus.PENDING_SYNC
+                        ),
+                        Expense(
+                            title = "Kids School Supplies & Books",
+                            amount = 65.00,
+                            category = Category.KIDS_AND_EDUCATION,
+                            notes = "Stationery and notebooks",
+                            syncStatus = SyncStatus.PENDING_SYNC
+                        ),
+                        Expense(
+                            title = "Family Dinner & Weekend Treat",
+                            amount = 58.00,
+                            category = Category.DINING_AND_OUTING,
+                            notes = "Sunday family dinner",
+                            syncStatus = SyncStatus.PENDING_SYNC
+                        )
                     )
+
+                    val demo = homeDemoList[demoIndex % homeDemoList.size]
+                    demoIndex++
                     addExpenseUseCase(demo)
-                    sendEffect(DashboardEffect.ShowToast("Added sample expense: AWS Cloud"))
+                    sendEffect(DashboardEffect.ShowToast("Added: ${demo.title}"))
                 }
             }
             is DashboardEvent.DeleteExpense -> {

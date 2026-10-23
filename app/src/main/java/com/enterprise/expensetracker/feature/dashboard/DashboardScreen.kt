@@ -17,10 +17,8 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
-import androidx.compose.material.icons.filled.AutoAwesome
 import androidx.compose.material.icons.filled.CloudSync
 import androidx.compose.material.icons.filled.CreditCard
-import androidx.compose.material.icons.filled.Savings
 import androidx.compose.material.icons.filled.TrendingUp
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
@@ -44,8 +42,6 @@ import com.enterprise.expensetracker.core.designsystem.components.SummaryMetricC
 import com.enterprise.expensetracker.core.designsystem.theme.BrandBlue
 import com.enterprise.expensetracker.core.designsystem.theme.EmeraldSuccess
 import com.enterprise.expensetracker.core.designsystem.theme.PurpleAi
-import com.enterprise.expensetracker.core.designsystem.theme.SlateDark700
-import com.enterprise.expensetracker.core.designsystem.theme.TextMutedDark
 import com.enterprise.expensetracker.core.designsystem.theme.TextPrimaryDark
 import java.util.Locale
 
@@ -64,10 +60,9 @@ fun DashboardScreen(
             .background(MaterialTheme.colorScheme.background)
     ) {
         ExpenseTopBar(
-            title = "Executive Overview",
-            subtitle = "Enterprise Expense Intelligence",
-            aiProviderName = state.activeAiEngine,
-            mongoSyncStatus = state.mongoSyncState
+            title = "Home Expenses",
+            subtitle = "Family & Household Budget",
+            aiProviderName = "Smart Advisor"
         )
 
         LazyColumn(
@@ -82,17 +77,17 @@ fun DashboardScreen(
                     horizontalArrangement = Arrangement.spacedBy(12.dp)
                 ) {
                     SummaryMetricCard(
-                        title = "TOTAL SPEND",
+                        title = "TOTAL SPENT",
                         value = "${state.currencySymbol}${String.format(Locale.US, "%.2f", state.totalSpendThisMonth)}",
-                        subtitle = "Current Period",
+                        subtitle = "This Month",
                         icon = Icons.Default.CreditCard,
                         iconTint = BrandBlue,
                         modifier = Modifier.weight(1f)
                     )
                     SummaryMetricCard(
-                        title = "AI FORECAST",
+                        title = "PREDICTED",
                         value = "${state.currencySymbol}${String.format(Locale.US, "%.2f", state.predictedEndOfMonthSpend)}",
-                        subtitle = "Projected End-Month",
+                        subtitle = "Estimated Month-End",
                         icon = Icons.Default.TrendingUp,
                         iconTint = PurpleAi,
                         modifier = Modifier.weight(1f)
@@ -114,26 +109,26 @@ fun DashboardScreen(
                     ) {
                         Icon(Icons.Default.Add, contentDescription = null, modifier = Modifier.size(16.dp))
                         Spacer(modifier = Modifier.width(6.dp))
-                        Text("Add Demo", fontSize = 13.sp)
+                        Text("Add Sample", fontSize = 13.sp)
                     }
 
                     OutlinedButton(
-                        onClick = { viewModel.dispatchEvent(DashboardEvent.TriggerMongoSync) },
+                        onClick = { viewModel.dispatchEvent(DashboardEvent.SyncData) },
                         shape = RoundedCornerShape(12.dp),
                         modifier = Modifier.weight(1f)
                     ) {
                         Icon(Icons.Default.CloudSync, contentDescription = null, tint = EmeraldSuccess, modifier = Modifier.size(16.dp))
                         Spacer(modifier = Modifier.width(6.dp))
-                        Text("Sync Mongo", fontSize = 13.sp, color = TextPrimaryDark)
+                        Text("Sync Cloud", fontSize = 13.sp, color = TextPrimaryDark)
                     }
                 }
             }
 
-            // Featured AI Insight
+            // Featured Home AI Insight
             if (state.featuredInsight != null) {
                 item {
                     Text(
-                        text = "Real-time AI Insights",
+                        text = "Household Budget Tip",
                         style = MaterialTheme.typography.titleMedium,
                         fontWeight = FontWeight.Bold,
                         color = TextPrimaryDark
@@ -143,7 +138,7 @@ fun DashboardScreen(
                 }
             }
 
-            // Recent Expenses Section
+            // Recent Home Expenses Section
             item {
                 Row(
                     modifier = Modifier.fillMaxWidth(),
@@ -151,29 +146,20 @@ fun DashboardScreen(
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     Text(
-                        text = "Recent Transactions",
+                        text = "Recent Home Expenses",
                         style = MaterialTheme.typography.titleMedium,
                         fontWeight = FontWeight.Bold,
                         color = TextPrimaryDark
                     )
-                    if (state.recentExpenses.isNotEmpty()) {
-                        Text(
-                            text = "View All",
-                            fontSize = 13.sp,
-                            fontWeight = FontWeight.SemiBold,
-                            color = BrandBlue,
-                            modifier = Modifier.padding(4.dp)
-                        )
-                    }
                 }
             }
 
             if (state.recentExpenses.isEmpty()) {
                 item {
                     EmptyStateView(
-                        title = "No Transactions Recorded",
-                        description = "Add sample transactions or synchronize with MongoDB to observe live tracking.",
-                        actionButtonText = "Generate Sample Transaction",
+                        title = "No Home Expenses Yet",
+                        description = "Tap '+ Add Sample' to quickly populate typical household bills and groceries.",
+                        actionButtonText = "Add Sample Expense",
                         onActionClick = { viewModel.dispatchEvent(DashboardEvent.AddDemoExpense) }
                     )
                 }

@@ -19,11 +19,10 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.AutoAwesome
-import androidx.compose.material.icons.filled.CloudDownload
+import androidx.compose.material.icons.filled.CloudDone
 import androidx.compose.material.icons.filled.DeleteForever
 import androidx.compose.material.icons.filled.Settings
-import androidx.compose.material.icons.filled.Storage
-import androidx.compose.material.icons.filled.Tune
+import androidx.compose.material.icons.filled.Sync
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Icon
@@ -63,8 +62,9 @@ fun SettingsScreen(
             .background(MaterialTheme.colorScheme.background)
     ) {
         ExpenseTopBar(
-            title = "Architecture Settings",
-            subtitle = "Dynamic runtime config & cloud integrations"
+            title = "Settings",
+            subtitle = "Household preferences & cloud sync",
+            aiProviderName = null
         )
 
         LazyColumn(
@@ -72,7 +72,7 @@ fun SettingsScreen(
             contentPadding = PaddingValues(horizontal = 20.dp, vertical = 12.dp),
             verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
-            // Firebase Remote Config Section
+            // Household Preferences
             item {
                 Box(
                     modifier = Modifier
@@ -83,54 +83,27 @@ fun SettingsScreen(
                         .padding(18.dp)
                 ) {
                     Column {
-                        Row(
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.SpaceBetween,
-                            modifier = Modifier.fillMaxWidth()
-                        ) {
-                            Row(verticalAlignment = Alignment.CenterVertically) {
-                                Icon(Icons.Default.Tune, contentDescription = null, tint = BrandBlue, modifier = Modifier.size(20.dp))
-                                Spacer(modifier = Modifier.width(8.dp))
-                                Text(
-                                    text = "Firebase Remote Config",
-                                    fontSize = 16.sp,
-                                    fontWeight = FontWeight.Bold,
-                                    color = TextPrimaryDark
-                                )
-                            }
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Icon(Icons.Default.Settings, contentDescription = null, tint = BrandBlue, modifier = Modifier.size(20.dp))
+                            Spacer(modifier = Modifier.width(8.dp))
                             Text(
-                                text = "Live",
-                                fontSize = 11.sp,
-                                fontWeight = FontWeight.SemiBold,
-                                color = EmeraldSuccess
+                                text = "Household Budget Preferences",
+                                fontSize = 16.sp,
+                                fontWeight = FontWeight.Bold,
+                                color = TextPrimaryDark
                             )
                         }
 
-                        Spacer(modifier = Modifier.height(12.dp))
-
-                        ConfigRow(label = "Default Currency", value = state.config.defaultCurrencyCode)
-                        ConfigRow(label = "Max Single Expense Limit", value = "$${state.config.maxSingleExpenseThreshold}")
-                        ConfigRow(label = "Sync Interval", value = "${state.config.syncIntervalMinutes} Minutes")
-                        ConfigRow(label = "AI Insights Enabled", value = state.config.isAiInsightsEnabled.toString())
-                        ConfigRow(label = "MongoDB Remote Target", value = if (state.config.dbConnectionUri.contains("@")) state.config.dbConnectionUri.substringAfter("@") else "cluster0.fithesf.mongodb.net")
-
                         Spacer(modifier = Modifier.height(14.dp))
 
-                        Button(
-                            onClick = { viewModel.dispatchEvent(SettingsEvent.RefreshFirebaseConfig) },
-                            colors = ButtonDefaults.buttonColors(containerColor = BrandBlue),
-                            shape = RoundedCornerShape(10.dp),
-                            modifier = Modifier.fillMaxWidth()
-                        ) {
-                            Icon(Icons.Default.CloudDownload, contentDescription = null, modifier = Modifier.size(16.dp))
-                            Spacer(modifier = Modifier.width(6.dp))
-                            Text("Fetch & Activate Latest Remote Config", fontSize = 13.sp, color = TextPrimaryDark)
-                        }
+                        SettingRow(label = "Currency", value = state.config.defaultCurrencyCode)
+                        SettingRow(label = "Monthly Family Limit", value = "$${state.config.maxSingleExpenseThreshold}")
+                        SettingRow(label = "Smart Insights", value = if (state.config.isAiInsightsEnabled) "Enabled" else "Disabled")
                     }
                 }
             }
 
-            // AI Engine Switcher Section
+            // AI Advisor Engine
             item {
                 Box(
                     modifier = Modifier
@@ -145,7 +118,7 @@ fun SettingsScreen(
                             Icon(Icons.Default.AutoAwesome, contentDescription = null, tint = PurpleAi, modifier = Modifier.size(20.dp))
                             Spacer(modifier = Modifier.width(8.dp))
                             Text(
-                                text = "Active AI Prediction Engine",
+                                text = "AI Financial Advisor Engine",
                                 fontSize = 16.sp,
                                 fontWeight = FontWeight.Bold,
                                 color = TextPrimaryDark
@@ -182,7 +155,7 @@ fun SettingsScreen(
 
                         Spacer(modifier = Modifier.height(10.dp))
                         Text(
-                            text = "Switching dynamically re-routes inference between Google Gemini Generative AI and OpenAI GPT without code modifications.",
+                            text = "Powers household budget predictions, grocery spend forecasts, and savings recommendations.",
                             fontSize = 12.sp,
                             color = TextMutedDark,
                             lineHeight = 16.sp
@@ -191,7 +164,7 @@ fun SettingsScreen(
                 }
             }
 
-            // MongoDB Database Diagnostics
+            // Cloud Backup & Sync (No technical DB information displayed)
             item {
                 Box(
                     modifier = Modifier
@@ -202,35 +175,45 @@ fun SettingsScreen(
                         .padding(18.dp)
                 ) {
                     Column {
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            Icon(Icons.Default.Storage, contentDescription = null, tint = EmeraldSuccess, modifier = Modifier.size(20.dp))
-                            Spacer(modifier = Modifier.width(8.dp))
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Icon(Icons.Default.CloudDone, contentDescription = null, tint = EmeraldSuccess, modifier = Modifier.size(20.dp))
+                                Spacer(modifier = Modifier.width(8.dp))
+                                Text(
+                                    text = "Cloud Backup & Sync",
+                                    fontSize = 16.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    color = TextPrimaryDark
+                                )
+                            }
                             Text(
-                                text = "MongoDB Atlas Persistence",
-                                fontSize = 16.sp,
-                                fontWeight = FontWeight.Bold,
-                                color = TextPrimaryDark
+                                text = "Active",
+                                fontSize = 12.sp,
+                                fontWeight = FontWeight.SemiBold,
+                                color = EmeraldSuccess
                             )
                         }
 
-                        Spacer(modifier = Modifier.height(12.dp))
+                        Spacer(modifier = Modifier.height(14.dp))
 
-                        ConfigRow(label = "Connection State", value = state.mongoStatus)
-                        ConfigRow(label = "Config Source", value = "Firebase Remote Config (DB_connection)")
-                        ConfigRow(label = "Database Name", value = "ExpensesManagement")
-                        ConfigRow(label = "Local Cached Transactions", value = state.totalLocalExpensesCount.toString())
+                        SettingRow(label = "Recorded Home Expenses", value = "${state.totalLocalExpensesCount} items")
+                        SettingRow(label = "Automatic Backup", value = "Enabled")
 
                         Spacer(modifier = Modifier.height(14.dp))
 
                         Button(
                             onClick = { viewModel.dispatchEvent(SettingsEvent.SyncMongoAtlas) },
-                            colors = ButtonDefaults.buttonColors(containerColor = EmeraldSuccess),
+                            colors = ButtonDefaults.buttonColors(containerColor = BrandBlue),
                             shape = RoundedCornerShape(10.dp),
                             modifier = Modifier.fillMaxWidth()
                         ) {
-                            Icon(Icons.Default.Storage, contentDescription = null, modifier = Modifier.size(16.dp))
+                            Icon(Icons.Default.Sync, contentDescription = null, modifier = Modifier.size(16.dp))
                             Spacer(modifier = Modifier.width(6.dp))
-                            Text("Trigger MongoDB Atlas Synchronization", fontSize = 13.sp, color = TextPrimaryDark)
+                            Text("Sync All Expenses Now", fontSize = 13.sp, color = TextPrimaryDark)
                         }
 
                         Spacer(modifier = Modifier.height(8.dp))
@@ -242,7 +225,7 @@ fun SettingsScreen(
                         ) {
                             Icon(Icons.Default.DeleteForever, contentDescription = null, tint = RoseAlert, modifier = Modifier.size(16.dp))
                             Spacer(modifier = Modifier.width(6.dp))
-                            Text("Clear Local Database Cache", fontSize = 13.sp, color = RoseAlert)
+                            Text("Reset Expense Ledger", fontSize = 13.sp, color = RoseAlert)
                         }
                     }
                 }
@@ -252,7 +235,7 @@ fun SettingsScreen(
 }
 
 @Composable
-private fun ConfigRow(label: String, value: String) {
+private fun SettingRow(label: String, value: String) {
     Row(
         modifier = Modifier
             .fillMaxWidth()

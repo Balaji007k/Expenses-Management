@@ -33,7 +33,7 @@ import com.enterprise.expensetracker.core.designsystem.theme.TextPrimaryDark
 
 @Composable
 fun LoadingStateView(
-    message: String = "Synchronizing enterprise data...",
+    message: String = "Synchronizing household data...",
     modifier: Modifier = Modifier
 ) {
     Box(
@@ -62,7 +62,7 @@ fun LoadingStateView(
 @Composable
 fun EmptyStateView(
     title: String = "No Expenses Recorded",
-    description: String = "Track your transactions to enable MongoDB syncing and AI predictions.",
+    description: String = "Track your home expenses to view monthly insights and smart suggestions.",
     icon: ImageVector = Icons.Default.Inbox,
     actionButtonText: String? = null,
     onActionClick: () -> Unit = {},

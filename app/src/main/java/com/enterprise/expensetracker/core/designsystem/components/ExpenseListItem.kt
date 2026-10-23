@@ -12,19 +12,20 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.BusinessCenter
+import androidx.compose.material.icons.filled.Bolt
+import androidx.compose.material.icons.filled.Build
 import androidx.compose.material.icons.filled.Category
-import androidx.compose.material.icons.filled.CheckCircle
-import androidx.compose.material.icons.filled.Computer
+import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.DirectionsCar
+import androidx.compose.material.icons.filled.Home
 import androidx.compose.material.icons.filled.LocalHospital
-import androidx.compose.material.icons.filled.Movie
-import androidx.compose.material.icons.filled.ReceiptLong
 import androidx.compose.material.icons.filled.Restaurant
-import androidx.compose.material.icons.filled.Sync
+import androidx.compose.material.icons.filled.School
+import androidx.compose.material.icons.filled.ShoppingBag
+import androidx.compose.material.icons.filled.ShoppingBasket
+import androidx.compose.material.icons.filled.Wifi
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -36,7 +37,6 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.enterprise.expensetracker.core.designsystem.theme.AmberWarning
 import com.enterprise.expensetracker.core.designsystem.theme.CardBackgroundDark
 import com.enterprise.expensetracker.core.designsystem.theme.CardBorderDark
 import com.enterprise.expensetracker.core.designsystem.theme.EmeraldSuccess
@@ -44,7 +44,6 @@ import com.enterprise.expensetracker.core.designsystem.theme.TextMutedDark
 import com.enterprise.expensetracker.core.designsystem.theme.TextPrimaryDark
 import com.enterprise.expensetracker.core.model.Category
 import com.enterprise.expensetracker.core.model.Expense
-import com.enterprise.expensetracker.core.model.SyncStatus
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
@@ -122,7 +121,7 @@ fun ExpenseListItem(
                 }
             }
 
-            // Amount and Sync Status
+            // Amount
             Column(horizontalAlignment = Alignment.End) {
                 Text(
                     text = "${expense.currency.symbol}${String.format(Locale.US, "%.2f", expense.amount)}",
@@ -130,22 +129,12 @@ fun ExpenseListItem(
                     fontWeight = FontWeight.Bold,
                     color = TextPrimaryDark
                 )
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(4.dp)
-                ) {
-                    val isSynced = expense.syncStatus == SyncStatus.SYNCED
-                    Icon(
-                        imageVector = if (isSynced) Icons.Default.CheckCircle else Icons.Default.Sync,
-                        contentDescription = "Sync Status",
-                        tint = if (isSynced) EmeraldSuccess else AmberWarning,
-                        modifier = Modifier.size(11.dp)
-                    )
+                if (!expense.notes.isNullOrBlank()) {
                     Text(
-                        text = if (isSynced) "MongoDB Synced" else "Pending Sync",
-                        fontSize = 10.sp,
-                        color = if (isSynced) EmeraldSuccess else AmberWarning,
-                        fontWeight = FontWeight.Medium
+                        text = expense.notes!!,
+                        fontSize = 11.sp,
+                        color = TextMutedDark,
+                        maxLines = 1
                     )
                 }
             }
@@ -155,13 +144,16 @@ fun ExpenseListItem(
 
 private fun getCategoryIcon(category: Category): ImageVector {
     return when (category) {
-        Category.FOOD_AND_DINING -> Icons.Default.Restaurant
-        Category.TRAVEL_AND_TRANSPORT -> Icons.Default.DirectionsCar
-        Category.SOFTWARE_AND_TECH -> Icons.Default.Computer
-        Category.OFFICE_AND_EQUIPMENT -> Icons.Default.BusinessCenter
-        Category.HEALTH_AND_WELLNESS -> Icons.Default.LocalHospital
-        Category.ENTERTAINMENT -> Icons.Default.Movie
-        Category.UTILITIES_AND_BILLS -> Icons.Default.ReceiptLong
+        Category.GROCERIES_AND_FOOD -> Icons.Default.ShoppingBasket
+        Category.RENT_AND_HOUSING -> Icons.Default.Home
+        Category.UTILITIES_AND_BILLS -> Icons.Default.Bolt
+        Category.INTERNET_AND_MOBILE -> Icons.Default.Wifi
+        Category.KIDS_AND_EDUCATION -> Icons.Default.School
+        Category.HEALTH_AND_MEDICINE -> Icons.Default.LocalHospital
+        Category.HOME_MAINTENANCE -> Icons.Default.Build
+        Category.SHOPPING_AND_CLOTHING -> Icons.Default.ShoppingBag
+        Category.TRAVEL_AND_FUEL -> Icons.Default.DirectionsCar
+        Category.DINING_AND_OUTING -> Icons.Default.Restaurant
         Category.MISCELLANEOUS -> Icons.Default.Category
     }
 }

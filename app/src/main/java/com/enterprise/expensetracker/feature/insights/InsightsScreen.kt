@@ -186,7 +186,7 @@ fun InsightsScreen(
                 // AI Anomaly & Optimization Recommendations
                 item {
                     Text(
-                        text = "Risk Analysis & Anomaly Detections",
+                        text = "Budget Alerts & Savings Opportunities",
                         style = MaterialTheme.typography.titleMedium,
                         fontWeight = FontWeight.Bold,
                         color = TextPrimaryDark
@@ -196,7 +196,7 @@ fun InsightsScreen(
                 if (state.insights.isEmpty()) {
                     item {
                         Text(
-                            text = "No anomalies detected in the current ledger. All spending is within normal thresholds.",
+                            text = "No anomalies detected in your home budget. All household spending is well within limits.",
                             fontSize = 13.sp,
                             color = TextMutedDark,
                             modifier = Modifier.padding(vertical = 8.dp)
@@ -218,7 +218,7 @@ fun InsightsScreen(
                     ) {
                         Icon(Icons.Default.Refresh, contentDescription = null, modifier = Modifier.size(16.dp))
                         Spacer(modifier = Modifier.width(8.dp))
-                        Text("Re-run AI Inference", color = TextPrimaryDark)
+                        Text("Re-calculate Home Forecast", color = TextPrimaryDark)
                     }
                 }
             }

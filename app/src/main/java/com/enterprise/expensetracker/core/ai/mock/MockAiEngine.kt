@@ -13,9 +13,8 @@ import javax.inject.Inject
 import javax.inject.Singleton
 
 /**
- * Enterprise Offline AI Simulator.
- * Computes realistic mathematical forecasts and anomaly detection locally
- * when network or AI API keys are unavailable.
+ * Intelligent Home Expense AI Advisor Simulator.
+ * Computes statistical household forecasts and savings suggestions.
  */
 @Singleton
 class MockAiEngine @Inject constructor() : AiEngine {
@@ -37,18 +36,18 @@ class MockAiEngine @Inject constructor() : AiEngine {
             )
         }
 
-        val predictedSpend = if (actualTotal > 0) actualTotal * 1.22 else monthlyBudget * 0.65
+        val predictedSpend = if (actualTotal > 0) actualTotal * 1.2 else monthlyBudget * 0.7
 
         return Result.success(
             SpendingForecast(
                 currentMonthActual = actualTotal,
                 predictedEndOfMonthSpend = predictedSpend,
-                historicalMonthlyAverage = monthlyBudget * 0.8,
-                confidenceRate = 0.98f,
+                historicalMonthlyAverage = monthlyBudget * 0.85,
+                confidenceRate = 0.95f,
                 predictedBurnRatePerDay = if (expenses.isNotEmpty()) actualTotal / 25.0 else 0.0,
                 daysRemainingInPeriod = 10,
                 breakdownByCategory = categoryBreakdown,
-                summaryNarrative = "AI Forecast: Based on ${expenses.size} tracked expenses, monthly trajectory is within expected enterprise parameters."
+                summaryNarrative = "AI Advisor: Based on ${expenses.size} home expenses, your household spending is comfortably within the monthly target."
             )
         )
     }
@@ -62,16 +61,16 @@ class MockAiEngine @Inject constructor() : AiEngine {
                     id = "init_insight",
                     type = InsightType.BUDGET_OPTIMIZATION,
                     severity = InsightSeverity.INFO,
-                    title = "AI Engine Initialized",
-                    message = "Add your first expense or sync with MongoDB to activate real-time AI trend analysis.",
+                    title = "Smart Advisor Ready",
+                    message = "Add your daily groceries, electricity, or utility bills to start smart budget tracking.",
                     confidenceScore = 1.0f,
-                    generatedByEngine = "Enterprise AI Engine"
+                    generatedByEngine = "Home AI Advisor"
                 )
             )
             return Result.success(insights)
         }
 
-        val highExpenses = expenses.filter { it.amount > 250.0 }
+        val highExpenses = expenses.filter { it.amount > 150.0 }
         if (highExpenses.isNotEmpty()) {
             val largest = highExpenses.maxBy { it.amount }
             insights.add(
@@ -79,24 +78,24 @@ class MockAiEngine @Inject constructor() : AiEngine {
                     id = "anomaly_${largest.id}",
                     type = InsightType.ANOMALY_DETECTED,
                     severity = InsightSeverity.WARNING,
-                    title = "Unusual Expense Peak",
-                    message = "'${largest.title}' (${largest.currency.symbol}${largest.amount}) represents an elevated fraction of your current period spend.",
+                    title = "High Household Expense",
+                    message = "'${largest.title}' (${largest.currency.symbol}${largest.amount}) is a major contributor to this month's budget.",
                     confidenceScore = 0.92f,
-                    generatedByEngine = "Enterprise Anomaly Model"
+                    generatedByEngine = "Budget Advisor"
                 )
             )
         }
 
         insights.add(
             AiInsight(
-                id = "tax_insight",
-                type = InsightType.TAX_DEDUCTIBLE_SUGGESTION,
+                id = "grocery_tip",
+                type = InsightType.BUDGET_OPTIMIZATION,
                 severity = InsightSeverity.OPPORTUNITY,
-                title = "Tax Deduction Opportunity",
-                message = "Software & Cloud expenses qualify for business tax write-offs in your reporting cycle.",
-                estimatedSavings = 145.0,
-                confidenceScore = 0.88f,
-                generatedByEngine = "Smart Tax Insights"
+                title = "Grocery & Utility Saving Tip",
+                message = "Switching to monthly pantry bulk orders and smart power saver habits can reduce bills.",
+                estimatedSavings = 45.0,
+                confidenceScore = 0.89f,
+                generatedByEngine = "Family Budget Advisor"
             )
         )
 
@@ -109,9 +108,16 @@ class MockAiEngine @Inject constructor() : AiEngine {
     ): Result<Category> {
         val lower = title.lowercase()
         val cat = when {
-            lower.contains("uber") || lower.contains("taxi") || lower.contains("flight") -> Category.TRAVEL_AND_TRANSPORT
-            lower.contains("dinner") || lower.contains("lunch") || lower.contains("coffee") -> Category.FOOD_AND_DINING
-            lower.contains("aws") || lower.contains("github") || lower.contains("jetbrains") -> Category.SOFTWARE_AND_TECH
+            lower.contains("milk") || lower.contains("grocery") || lower.contains("vegetable") || lower.contains("food") -> Category.GROCERIES_AND_FOOD
+            lower.contains("rent") || lower.contains("mortgage") || lower.contains("flat") -> Category.RENT_AND_HOUSING
+            lower.contains("electric") || lower.contains("water") || lower.contains("gas") || lower.contains("bill") -> Category.UTILITIES_AND_BILLS
+            lower.contains("wifi") || lower.contains("internet") || lower.contains("recharge") -> Category.INTERNET_AND_MOBILE
+            lower.contains("school") || lower.contains("tuition") || lower.contains("book") -> Category.KIDS_AND_EDUCATION
+            lower.contains("doctor") || lower.contains("pharmacy") || lower.contains("medicine") -> Category.HEALTH_AND_MEDICINE
+            lower.contains("repair") || lower.contains("plumb") || lower.contains("maid") -> Category.HOME_MAINTENANCE
+            lower.contains("clothes") || lower.contains("dress") || lower.contains("shopping") -> Category.SHOPPING_AND_CLOTHING
+            lower.contains("fuel") || lower.contains("petrol") || lower.contains("bus") -> Category.TRAVEL_AND_FUEL
+            lower.contains("dinner") || lower.contains("treat") || lower.contains("snack") -> Category.DINING_AND_OUTING
             else -> Category.MISCELLANEOUS
         }
         return Result.success(cat)

@@ -53,9 +53,9 @@ class SettingsViewModel @Inject constructor(
                     val result = getDynamicConfigUseCase.refresh()
                     setState { copy(isRefreshingConfig = false) }
                     if (result.isSuccess) {
-                        sendEffect(SettingsEffect.ShowNotification("Firebase Remote Config activated"))
+                        sendEffect(SettingsEffect.ShowNotification("Preferences updated from cloud"))
                     } else {
-                        sendEffect(SettingsEffect.ShowNotification("Using enterprise cached config"))
+                        sendEffect(SettingsEffect.ShowNotification("Using cached household preferences"))
                     }
                 }
             }
@@ -63,9 +63,9 @@ class SettingsViewModel @Inject constructor(
                 viewModelScope.launch {
                     val result = mongoDbManager.triggerSync()
                     if (result.isSuccess) {
-                        sendEffect(SettingsEffect.ShowNotification("Synced successfully with MongoDB Atlas"))
+                        sendEffect(SettingsEffect.ShowNotification("Synced successfully with cloud backup"))
                     } else {
-                        sendEffect(SettingsEffect.ShowNotification("MongoDB sync queued"))
+                        sendEffect(SettingsEffect.ShowNotification("Cloud backup queued"))
                     }
                 }
             }
@@ -81,7 +81,7 @@ class SettingsViewModel @Inject constructor(
             is SettingsEvent.ClearLocalDatabase -> {
                 viewModelScope.launch {
                     mongoDbManager.expenseDao.clearAll()
-                    sendEffect(SettingsEffect.ShowNotification("Local cache cleared"))
+                    sendEffect(SettingsEffect.ShowNotification("Expense ledger reset successfully"))
                 }
             }
         }

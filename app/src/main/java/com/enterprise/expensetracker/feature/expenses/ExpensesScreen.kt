@@ -30,10 +30,8 @@ import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
-import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -76,8 +74,9 @@ fun ExpensesScreen(
                 .padding(padding)
         ) {
             ExpenseTopBar(
-                title = "Expense Ledger",
-                subtitle = "Manage & audit business transactions"
+                title = "Household Ledger",
+                subtitle = "Track daily family expenses & bills",
+                aiProviderName = null
             )
 
             // Search Bar
@@ -85,7 +84,7 @@ fun ExpensesScreen(
                 OutlinedTextField(
                     value = state.searchQuery,
                     onValueChange = { viewModel.dispatchEvent(ExpensesEvent.SearchQueryChanged(it)) },
-                    placeholder = { Text("Search by title or vendor...", color = TextMutedDark, fontSize = 14.sp) },
+                    placeholder = { Text("Search groceries, bills, milk, pharmacy...", color = TextMutedDark, fontSize = 14.sp) },
                     leadingIcon = {
                         Icon(Icons.Default.Search, contentDescription = null, tint = TextMutedDark, modifier = Modifier.size(18.dp))
                     },
@@ -150,8 +149,8 @@ fun ExpensesScreen(
             // Transactions List
             if (state.filteredExpenses.isEmpty()) {
                 EmptyStateView(
-                    title = "No Matching Transactions",
-                    description = if (state.searchQuery.isNotBlank()) "No records match '${state.searchQuery}'" else "Tap + below to record a business expense.",
+                    title = "No Expenses Found",
+                    description = if (state.searchQuery.isNotBlank()) "No records match '${state.searchQuery}'" else "Tap + below to record a household expense.",
                     actionButtonText = "Add Expense",
                     onActionClick = { viewModel.dispatchEvent(ExpensesEvent.SetAddDialogVisible(true)) }
                 )
