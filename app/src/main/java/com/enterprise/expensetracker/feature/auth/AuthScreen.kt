@@ -39,6 +39,8 @@ import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
+import android.accounts.AccountManager
+import android.app.Activity
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.material3.AlertDialog
@@ -134,6 +136,31 @@ fun AuthScreen(
                     e.localizedMessage ?: "Google sign-in failed. Please verify credentials."
                 )
             )
+        }
+    }
+
+    val accountPickerLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.StartActivityForResult()
+    ) { result ->
+        if (result.resultCode == Activity.RESULT_OK && result.data != null) {
+            val selectedEmail = result.data?.getStringExtra(AccountManager.KEY_ACCOUNT_NAME)?.trim().orEmpty()
+            if (selectedEmail.isNotBlank()) {
+                val resolvedName = selectedEmail.substringBefore("@")
+                    .replace(".", " ")
+                    .split(" ")
+                    .filter { it.isNotBlank() }
+                    .joinToString(" ") { word -> word.replaceFirstChar { c -> c.uppercase() } }
+                viewModel.dispatchEvent(
+                    AuthEvent.GoogleSignInSuccess(
+                        email = selectedEmail,
+                        displayName = resolvedName
+                    )
+                )
+            } else {
+                showDirectGoogleDialog = true
+            }
+        } else if (result.resultCode != Activity.RESULT_CANCELED) {
+            showDirectGoogleDialog = true
         }
     }
 
@@ -550,19 +577,30 @@ fun AuthScreen(
                 onClick = {
                     viewModel.dispatchEvent(AuthEvent.GoogleSignInClicked)
                     try {
-                        val gso = GoogleSignInOptions.Builder(GoogleSignInOptions.DEFAULT_SIGN_IN)
-                            .requestEmail()
-                            .requestProfile()
-                            .build()
-                        val googleSignInClient = GoogleSignIn.getClient(context, gso)
-                        googleSignInClient.signOut().addOnCompleteListener {
-                            googleSignInLauncher.launch(googleSignInClient.signInIntent)
-                        }
-                    } catch (e: Exception) {
-                        showDirectGoogleDialog = true
-                        viewModel.dispatchEvent(
-                            AuthEvent.GoogleSignInFailure("Please connect Google Account details below: ${e.localizedMessage}")
+                        val chooseAccountIntent = AccountManager.newChooseAccountIntent(
+                            null,
+                            null,
+                            arrayOf("com.google"),
+                            false,
+                            null,
+                            null,
+                            null,
+                            null
                         )
+                        accountPickerLauncher.launch(chooseAccountIntent)
+                    } catch (e: Exception) {
+                        try {
+                            val gso = GoogleSignInOptions.Builder(GoogleSignInOptions.DEFAULT_SIGN_IN)
+                                .requestEmail()
+                                .requestProfile()
+                                .build()
+                            val googleSignInClient = GoogleSignIn.getClient(context, gso)
+                            googleSignInClient.signOut().addOnCompleteListener {
+                                googleSignInLauncher.launch(googleSignInClient.signInIntent)
+                            }
+                        } catch (_: Exception) {
+                            showDirectGoogleDialog = true
+                        }
                     }
                 },
                 enabled = !state.isLoading,
