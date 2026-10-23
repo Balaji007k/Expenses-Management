@@ -28,6 +28,7 @@ import androidx.compose.material.icons.filled.FamilyRestroom
 import androidx.compose.material.icons.filled.Logout
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.Security
+import com.enterprise.expensetracker.core.designsystem.components.UserAvatarView
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
@@ -134,20 +135,12 @@ fun FamilyScreen(
                                 horizontalArrangement = Arrangement.SpaceBetween
                             ) {
                                 Row(verticalAlignment = Alignment.CenterVertically) {
-                                    Box(
-                                        modifier = Modifier
-                                            .size(46.dp)
-                                            .clip(CircleShape)
-                                            .background(if (isHead) PurpleAi else BrandBlue),
-                                        contentAlignment = Alignment.Center
-                                    ) {
-                                        Text(
-                                            text = user.name.take(1).uppercase(),
-                                            fontSize = 20.sp,
-                                            fontWeight = FontWeight.Bold,
-                                            color = TextPrimaryDark
-                                        )
-                                    }
+                                    UserAvatarView(
+                                        name = user.name,
+                                        avatarUrl = user.avatarUrl,
+                                        isHeadOfHousehold = isHead,
+                                        size = 46.dp
+                                    )
                                     Spacer(modifier = Modifier.width(12.dp))
                                     Column {
                                         Text(
@@ -600,20 +593,12 @@ private fun FamilyMemberCard(
                 verticalAlignment = Alignment.CenterVertically,
                 modifier = Modifier.weight(1f)
             ) {
-                Box(
-                    modifier = Modifier
-                        .size(42.dp)
-                        .clip(CircleShape)
-                        .background(if (member.isHeadOfHousehold) PurpleAi else SlateDark700),
-                    contentAlignment = Alignment.Center
-                ) {
-                    Text(
-                        text = member.name.take(1).uppercase(),
-                        fontSize = 17.sp,
-                        fontWeight = FontWeight.Bold,
-                        color = TextPrimaryDark
-                    )
-                }
+                UserAvatarView(
+                    name = member.name,
+                    avatarUrl = member.avatarUrl,
+                    isHeadOfHousehold = member.isHeadOfHousehold,
+                    size = 42.dp
+                )
 
                 Spacer(modifier = Modifier.width(12.dp))
 

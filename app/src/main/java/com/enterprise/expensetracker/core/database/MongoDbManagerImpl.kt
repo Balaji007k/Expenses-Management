@@ -158,34 +158,48 @@ class MongoDbManagerImpl @Inject constructor(
                 // Also update catalog item automatically if this is a named commodity
                 saveItemToCatalogIfApplicable(entity)
 
-                val col = ensureExpensesCollection()
-                val doc = expenseEntityToDocument(entity)
-                col.replaceOne(
-                    Filters.eq("_id", entity._id),
-                    doc,
-                    ReplaceOptions().upsert(true)
-                )
-                val synced = entity.copy(syncState = "SYNCED")
-                localStore[entity._id] = synced
-                publishUpdate()
-                android.util.Log.i("MongoDbManager", "Successfully written expense '${entity.title}' (${entity.amount}) to Atlas!")
-            }
-        }
-
-        override suspend fun upsertExpenses(entities: List<ExpenseMongoEntity>) {
-            withContext(dispatchers.io) {
-                val col = ensureExpensesCollection()
-                entities.forEach { entity ->
-                    saveItemToCatalogIfApplicable(entity)
+                try {
+                    val col = ensureExpensesCollection()
                     val doc = expenseEntityToDocument(entity)
                     col.replaceOne(
                         Filters.eq("_id", entity._id),
                         doc,
                         ReplaceOptions().upsert(true)
                     )
-                    localStore[entity._id] = entity.copy(syncState = "SYNCED")
+                    val synced = entity.copy(syncState = "SYNCED")
+                    localStore[entity._id] = synced
+                    publishUpdate()
+                    android.util.Log.i("MongoDbManager", "Successfully written expense '${entity.title}' (${entity.amount}) to Atlas!")
+                } catch (t: Throwable) {
+                    android.util.Log.e("MongoDbManager", "Failed writing expense '${entity.title}' to Atlas: ${t.message}", t)
+                    val pending = entity.copy(syncState = "PENDING_SYNC")
+                    localStore[entity._id] = pending
+                    publishUpdate()
                 }
-                publishUpdate()
+            }
+        }
+
+        override suspend fun upsertExpenses(entities: List<ExpenseMongoEntity>) {
+            withContext(dispatchers.io) {
+                try {
+                    val col = ensureExpensesCollection()
+                    entities.forEach { entity ->
+                        saveItemToCatalogIfApplicable(entity)
+                        val doc = expenseEntityToDocument(entity)
+                        col.replaceOne(
+                            Filters.eq("_id", entity._id),
+                            doc,
+                            ReplaceOptions().upsert(true)
+                        )
+                        localStore[entity._id] = entity.copy(syncState = "SYNCED")
+                    }
+                    publishUpdate()
+                } catch (t: Throwable) {
+                    entities.forEach { entity ->
+                        localStore[entity._id] = entity.copy(syncState = "PENDING_SYNC")
+                    }
+                    publishUpdate()
+                }
             }
         }
 
@@ -607,10 +621,7 @@ class MongoDbManagerImpl @Inject constructor(
                 if (collection != null) {
                     try {
                         collection.deleteMany(
-                            Filters.or(
-                                Filters.`in`("createdByUserId", "head_user_001", "member_user_002", "member_user_003"),
-                                Filters.eq("ownerId", "household_user")
-                            )
+                            Filters.`in`("createdByUserId", "head_user_001", "member_user_002", "member_user_003")
                         )
                     } catch (_: Throwable) {}
 
@@ -632,7 +643,7 @@ class MongoDbManagerImpl @Inject constructor(
                         val doc = remoteCursor.next()
                         val id = doc.getString("_id") ?: doc.getObjectId("_id")?.toHexString() ?: continue
                         val creatorId = doc.getString("createdByUserId") ?: ""
-                        if (creatorId in listOf("head_user_001", "member_user_002", "member_user_003") || doc.getString("ownerId") == "household_user") {
+                        if (creatorId in listOf("head_user_001", "member_user_002", "member_user_003")) {
                             continue
                         }
                         val remoteEntity = docToExpenseEntity(doc)

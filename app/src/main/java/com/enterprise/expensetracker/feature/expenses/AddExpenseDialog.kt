@@ -1,5 +1,12 @@
 package com.enterprise.expensetracker.feature.expenses
 
+import android.content.Context
+import android.graphics.Bitmap
+import android.graphics.BitmapFactory
+import android.net.Uri
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -9,12 +16,14 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
@@ -22,10 +31,13 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.AddPhotoAlternate
 import androidx.compose.material.icons.filled.Bolt
 import androidx.compose.material.icons.filled.Build
+import androidx.compose.material.icons.filled.CameraAlt
 import androidx.compose.material.icons.filled.Category
+import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.DirectionsCar
 import androidx.compose.material.icons.filled.Home
 import androidx.compose.material.icons.filled.LocalHospital
+import androidx.compose.material.icons.filled.PhotoLibrary
 import androidx.compose.material.icons.filled.Restaurant
 import androidx.compose.material.icons.filled.School
 import androidx.compose.material.icons.filled.ShoppingBag
@@ -35,6 +47,8 @@ import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Text
@@ -48,11 +62,16 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import java.io.File
+import java.io.FileOutputStream
 import com.enterprise.expensetracker.core.designsystem.theme.BrandBlue
 import com.enterprise.expensetracker.core.designsystem.theme.CardBackgroundDark
 import com.enterprise.expensetracker.core.designsystem.theme.CardBorderDark
@@ -90,6 +109,30 @@ fun AddExpenseDialog(
     var selectedCategory by remember { mutableStateOf(initialExpense?.category ?: Category.GROCERIES_AND_FOOD) }
     var notes by remember { mutableStateOf(initialExpense?.notes ?: "") }
     var imageUrl by remember { mutableStateOf(initialExpense?.receiptUrl ?: "") }
+
+    val context = LocalContext.current
+
+    val cameraLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.TakePicturePreview()
+    ) { bitmap: Bitmap? ->
+        if (bitmap != null) {
+            val saved = saveExpenseBitmap(context, bitmap)
+            if (saved != null) {
+                imageUrl = saved
+            }
+        }
+    }
+
+    val galleryLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.GetContent()
+    ) { uri: Uri? ->
+        if (uri != null) {
+            val saved = saveExpenseUri(context, uri)
+            if (saved != null) {
+                imageUrl = saved
+            }
+        }
+    }
     var errorMessage by remember { mutableStateOf<String?>(null) }
 
     val commonUnits = listOf("kg", "g", "litre", "ml", "packet", "piece", "dozen", "box", "bundle", "item")
@@ -292,23 +335,87 @@ fun AddExpenseDialog(
                     modifier = Modifier.fillMaxWidth()
                 )
 
-                // Optional Image URL or Camera receipt
-                OutlinedTextField(
-                    value = imageUrl,
-                    onValueChange = { imageUrl = it },
-                    label = { Text("Image / Receipt URL (Optional)") },
-                    leadingIcon = {
-                        Icon(Icons.Default.AddPhotoAlternate, contentDescription = null, tint = TextMutedDark, modifier = Modifier.size(18.dp))
-                    },
-                    singleLine = true,
-                    colors = OutlinedTextFieldDefaults.colors(
-                        focusedTextColor = TextPrimaryDark,
-                        unfocusedTextColor = TextPrimaryDark,
-                        focusedBorderColor = BrandBlue,
-                        unfocusedBorderColor = CardBorderDark
-                    ),
-                    modifier = Modifier.fillMaxWidth()
+                // Item Photo / Receipt (Camera capture or Gallery upload)
+                Text(
+                    text = "Item Photo / Receipt (Optional)",
+                    fontSize = 12.sp,
+                    fontWeight = FontWeight.SemiBold,
+                    color = TextMutedDark
                 )
+
+                val currentImageBitmap = remember(imageUrl) {
+                    if (imageUrl.isNotBlank()) {
+                        try {
+                            val f = File(imageUrl)
+                            if (f.exists()) {
+                                BitmapFactory.decodeFile(f.absolutePath)?.asImageBitmap()
+                            } else null
+                        } catch (_: Throwable) {
+                            null
+                        }
+                    } else null
+                }
+
+                if (currentImageBitmap != null) {
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(140.dp)
+                            .clip(RoundedCornerShape(12.dp))
+                            .background(CardBackgroundDark)
+                            .border(1.dp, CardBorderDark, RoundedCornerShape(12.dp))
+                    ) {
+                        Image(
+                            bitmap = currentImageBitmap,
+                            contentDescription = "Selected Item Photo",
+                            contentScale = ContentScale.Crop,
+                            modifier = Modifier.fillMaxSize()
+                        )
+                        IconButton(
+                            onClick = { imageUrl = "" },
+                            modifier = Modifier
+                                .align(Alignment.TopEnd)
+                                .padding(8.dp)
+                                .size(28.dp)
+                                .clip(CircleShape)
+                                .background(Color.Black.copy(alpha = 0.65f))
+                        ) {
+                            Icon(
+                                Icons.Default.Close,
+                                contentDescription = "Remove photo",
+                                tint = Color.White,
+                                modifier = Modifier.size(16.dp)
+                            )
+                        }
+                    }
+                }
+
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    OutlinedButton(
+                        onClick = { cameraLauncher.launch(null) },
+                        modifier = Modifier.weight(1f),
+                        shape = RoundedCornerShape(10.dp),
+                        colors = ButtonDefaults.outlinedButtonColors(contentColor = BrandBlue)
+                    ) {
+                        Icon(Icons.Default.CameraAlt, contentDescription = null, modifier = Modifier.size(16.dp))
+                        Spacer(modifier = Modifier.width(6.dp))
+                        Text("Capture", fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
+                    }
+
+                    OutlinedButton(
+                        onClick = { galleryLauncher.launch("image/*") },
+                        modifier = Modifier.weight(1f),
+                        shape = RoundedCornerShape(10.dp),
+                        colors = ButtonDefaults.outlinedButtonColors(contentColor = BrandBlue)
+                    ) {
+                        Icon(Icons.Default.PhotoLibrary, contentDescription = null, modifier = Modifier.size(16.dp))
+                        Spacer(modifier = Modifier.width(6.dp))
+                        Text("Upload", fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
+                    }
+                }
 
                 // Category Selection
                 Text(
@@ -408,3 +515,43 @@ fun AddExpenseDialog(
         }
     )
 }
+
+private fun saveExpenseBitmap(context: Context, bitmap: Bitmap): String? {
+    return try {
+        val dir = File(context.filesDir, "expense_images").apply { mkdirs() }
+        val file = File(dir, "item_${System.currentTimeMillis()}.jpg")
+        val out = FileOutputStream(file)
+        bitmap.compress(Bitmap.CompressFormat.JPEG, 85, out)
+        out.flush()
+        out.close()
+        file.absolutePath
+    } catch (_: Throwable) {
+        null
+    }
+}
+
+private fun saveExpenseUri(context: Context, uri: Uri): String? {
+    return try {
+        val stream = context.contentResolver.openInputStream(uri) ?: return null
+        val original = BitmapFactory.decodeStream(stream)
+        stream.close()
+        if (original == null) return null
+
+        val maxDim = 800
+        val scale = minOf(maxDim.toFloat() / original.width, maxDim.toFloat() / original.height, 1.0f)
+        val scaled = if (scale < 1.0f) {
+            Bitmap.createScaledBitmap(original, (original.width * scale).toInt(), (original.height * scale).toInt(), true)
+        } else original
+
+        val dir = File(context.filesDir, "expense_images").apply { mkdirs() }
+        val file = File(dir, "item_${System.currentTimeMillis()}.jpg")
+        val out = FileOutputStream(file)
+        scaled.compress(Bitmap.CompressFormat.JPEG, 85, out)
+        out.flush()
+        out.close()
+        file.absolutePath
+    } catch (_: Throwable) {
+        null
+    }
+}
+

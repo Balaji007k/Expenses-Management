@@ -1,5 +1,7 @@
 package com.enterprise.expensetracker.core.designsystem.components
 
+import android.graphics.BitmapFactory
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -8,6 +10,7 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
@@ -39,7 +42,9 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -57,6 +62,7 @@ import com.enterprise.expensetracker.core.model.Category
 import com.enterprise.expensetracker.core.model.Expense
 import com.enterprise.expensetracker.core.model.ExpenseScope
 import com.enterprise.expensetracker.core.model.StockStatus
+import java.io.File
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
@@ -81,6 +87,19 @@ fun ExpenseListItem(
 
     val categoryIcon = getCategoryIcon(expense.category)
 
+    val itemBitmap = androidx.compose.runtime.remember(expense.receiptUrl) {
+        if (!expense.receiptUrl.isNullOrBlank()) {
+            try {
+                val f = File(expense.receiptUrl)
+                if (f.exists()) {
+                    BitmapFactory.decodeFile(f.absolutePath)?.asImageBitmap()
+                } else null
+            } catch (_: Throwable) {
+                null
+            }
+        } else null
+    }
+
     Box(
         modifier = modifier
             .fillMaxWidth()
@@ -101,7 +120,7 @@ fun ExpenseListItem(
                     verticalAlignment = Alignment.CenterVertically,
                     modifier = Modifier.weight(1f)
                 ) {
-                    // Category Icon / Image placeholder
+                    // Category Icon / Item Photo
                     Box(
                         modifier = Modifier
                             .size(46.dp)
@@ -109,12 +128,21 @@ fun ExpenseListItem(
                             .background(categoryColor.copy(alpha = 0.15f)),
                         contentAlignment = Alignment.Center
                     ) {
-                        Icon(
-                            imageVector = categoryIcon,
-                            contentDescription = expense.category.displayName,
-                            tint = categoryColor,
-                            modifier = Modifier.size(24.dp)
-                        )
+                        if (itemBitmap != null) {
+                            Image(
+                                bitmap = itemBitmap,
+                                contentDescription = expense.title,
+                                contentScale = ContentScale.Crop,
+                                modifier = Modifier.fillMaxSize()
+                            )
+                        } else {
+                            Icon(
+                                imageVector = categoryIcon,
+                                contentDescription = expense.category.displayName,
+                                tint = categoryColor,
+                                modifier = Modifier.size(24.dp)
+                            )
+                        }
                     }
 
                     Spacer(modifier = Modifier.width(12.dp))

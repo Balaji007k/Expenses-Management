@@ -41,10 +41,11 @@ data class ExpenseMongoEntity(
     var quantityRemainingBeforeRestock: Double? = null
 )
 
-fun Expense.toMongoEntity(ownerId: String = "household_user"): ExpenseMongoEntity {
+fun Expense.toMongoEntity(ownerId: String = ""): ExpenseMongoEntity {
+    val actualOwnerId = ownerId.ifBlank { createdByUserId.ifBlank { familyId } }
     return ExpenseMongoEntity(
         _id = id,
-        ownerId = ownerId,
+        ownerId = actualOwnerId,
         title = title,
         amount = amount,
         categoryId = category.id,

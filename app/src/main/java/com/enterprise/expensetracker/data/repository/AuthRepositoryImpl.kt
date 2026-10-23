@@ -336,7 +336,8 @@ class AuthRepositoryImpl @Inject constructor(
 
     override suspend fun updateProfile(
         name: String,
-        relationship: FamilyRelationship
+        relationship: FamilyRelationship,
+        avatarUrl: String?
     ): Result<UserProfile> {
         return withContext(dispatchers.io) {
             val current = _currentUser.value ?: return@withContext Result.failure(IllegalStateException("No active session"))
@@ -344,6 +345,7 @@ class AuthRepositoryImpl @Inject constructor(
             val updatedEntity = (existing ?: current.toMongoEntity()).copy(
                 name = name.trim().ifEmpty { current.name },
                 relationship = relationship.name,
+                avatarUrl = avatarUrl ?: existing?.avatarUrl ?: current.avatarUrl,
                 updatedAt = System.currentTimeMillis()
             )
 
@@ -351,6 +353,23 @@ class AuthRepositoryImpl @Inject constructor(
             mongoDbManager.userDao.upsertUser(updatedEntity)
             val updated = updatedEntity.toDomain()
             _currentUser.value = updated
+            Result.success(updated)
+        }
+    }
+
+    override suspend fun updateAvatar(avatarUrl: String): Result<UserProfile> {
+        return withContext(dispatchers.io) {
+            val current = _currentUser.value ?: return@withContext Result.failure(IllegalStateException("No active session"))
+            val existing = mongoDbManager.userDao.getUserById(current.id)
+            val updatedEntity = (existing ?: current.toMongoEntity()).copy(
+                avatarUrl = avatarUrl,
+                updatedAt = System.currentTimeMillis()
+            )
+
+            mongoDbManager.userDao.upsertUser(updatedEntity)
+            val updated = updatedEntity.toDomain()
+            _currentUser.value = updated
+            android.util.Log.i("AuthRepository", "Successfully updated avatar for user ${current.email} in MongoDB Atlas!")
             Result.success(updated)
         }
     }

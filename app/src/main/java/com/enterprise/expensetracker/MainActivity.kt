@@ -107,13 +107,25 @@ fun MainAppScaffold(currentUser: UserProfile?) {
                     NavigationBarItem(
                         selected = isSelected,
                         onClick = {
-                            if (currentRoute != item.route) {
-                                navController.navigate(item.route) {
-                                    popUpTo(navController.graph.findStartDestination().id) {
-                                        saveState = true
+                            if (item.route == NavigationItem.Dashboard.route) {
+                                val popped = navController.popBackStack(NavigationItem.Dashboard.route, false)
+                                if (!popped && currentRoute != item.route) {
+                                    navController.navigate(item.route) {
+                                        popUpTo(navController.graph.findStartDestination().id) {
+                                            inclusive = true
+                                        }
+                                        launchSingleTop = true
                                     }
-                                    launchSingleTop = true
-                                    restoreState = true
+                                }
+                            } else {
+                                if (currentRoute != item.route) {
+                                    navController.navigate(item.route) {
+                                        popUpTo(navController.graph.findStartDestination().id) {
+                                            saveState = true
+                                        }
+                                        launchSingleTop = true
+                                        restoreState = true
+                                    }
                                 }
                             }
                         },
@@ -153,8 +165,24 @@ fun MainAppScaffold(currentUser: UserProfile?) {
             composable(NavigationItem.Dashboard.route) {
                 DashboardScreen(
                     viewModel = hiltViewModel(),
-                    onNavigateToExpenses = { navController.navigate(NavigationItem.Expenses.route) },
-                    onNavigateToInsights = { navController.navigate(NavigationItem.Insights.route) }
+                    onNavigateToExpenses = {
+                        navController.navigate(NavigationItem.Expenses.route) {
+                            popUpTo(navController.graph.findStartDestination().id) {
+                                saveState = true
+                            }
+                            launchSingleTop = true
+                            restoreState = true
+                        }
+                    },
+                    onNavigateToInsights = {
+                        navController.navigate(NavigationItem.Insights.route) {
+                            popUpTo(navController.graph.findStartDestination().id) {
+                                saveState = true
+                            }
+                            launchSingleTop = true
+                            restoreState = true
+                        }
+                    }
                 )
             }
             composable(NavigationItem.Expenses.route) {

@@ -29,5 +29,6 @@ interface AuthRepository {
         relationship: FamilyRelationship
     ): Result<UserProfile>
     suspend fun removeFamilyMember(memberId: String): Result<Unit>
-    suspend fun updateProfile(name: String, relationship: FamilyRelationship): Result<UserProfile>
+    suspend fun updateProfile(name: String, relationship: FamilyRelationship, avatarUrl: String? = null): Result<UserProfile>
+    suspend fun updateAvatar(avatarUrl: String): Result<UserProfile>
 }

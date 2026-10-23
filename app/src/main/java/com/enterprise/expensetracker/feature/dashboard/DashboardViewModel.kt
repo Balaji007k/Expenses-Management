@@ -68,7 +68,7 @@ class DashboardViewModel @Inject constructor(
 
         val familyBudget = snapshot.allBudgets.firstOrNull {
             it.familyId == familyId && it.scope == BudgetScope.FAMILY
-        }
+        } ?: snapshot.allBudgets.firstOrNull { it.scope == BudgetScope.FAMILY }
         val memberBudget = snapshot.allBudgets.firstOrNull {
             it.familyId == familyId && it.userId == user?.id && it.scope == BudgetScope.INDIVIDUAL
         }

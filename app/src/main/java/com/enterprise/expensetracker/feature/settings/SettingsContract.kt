@@ -9,6 +9,14 @@ data class SettingsState(
     val mongoStatus: String = "Connected",
     val activeAiProvider: String = "GEMINI",
     val isRefreshingConfig: Boolean = false,
+    val isAvatarDialogOpen: Boolean = false,
+    val isBudgetPrefDialogOpen: Boolean = false,
+    val currentFamilyBudget: Double = 50000.0,
+    val isSmartInsightsEnabled: Boolean = true,
+    val geminiApiKey: String = "",
+    val openAiApiKey: String = "",
+    val isTestingAi: Boolean = false,
+    val aiTestResult: String? = null,
     val totalLocalExpensesCount: Int = 0
 )
 
@@ -18,6 +26,13 @@ sealed interface SettingsEvent {
     data class SwitchAiProvider(val provider: String) : SettingsEvent
     data object ClearLocalDatabase : SettingsEvent
     data object SignOut : SettingsEvent
+    data class SetAvatarDialogVisible(val isVisible: Boolean) : SettingsEvent
+    data class UpdateAvatar(val avatarUrl: String) : SettingsEvent
+    data class SetBudgetPrefDialogVisible(val isVisible: Boolean) : SettingsEvent
+    data class SaveBudgetPreference(val limit: Double, val isSmartInsightsEnabled: Boolean) : SettingsEvent
+    data class SaveAiKey(val provider: String, val apiKey: String) : SettingsEvent
+    data class TestAiConnection(val provider: String) : SettingsEvent
+    data object DismissAiTestResult : SettingsEvent
 }
 
 sealed interface SettingsEffect {
