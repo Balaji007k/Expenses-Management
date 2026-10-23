@@ -18,9 +18,11 @@ enum class MongoConnectionState {
  */
 interface MongoDbManager {
     val connectionState: StateFlow<MongoConnectionState>
+    val activeConnectionUri: StateFlow<String>
     val expenseDao: ExpenseMongoDao
 
     suspend fun initialize(appId: String, apiKey: String? = null)
+    suspend fun connectWithUri(uri: String): Result<Unit>
     suspend fun triggerSync(): Result<Unit>
     suspend fun disconnect()
 }

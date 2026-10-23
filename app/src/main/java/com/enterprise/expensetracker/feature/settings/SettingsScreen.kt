@@ -112,6 +112,7 @@ fun SettingsScreen(
                         ConfigRow(label = "Max Single Expense Limit", value = "$${state.config.maxSingleExpenseThreshold}")
                         ConfigRow(label = "Sync Interval", value = "${state.config.syncIntervalMinutes} Minutes")
                         ConfigRow(label = "AI Insights Enabled", value = state.config.isAiInsightsEnabled.toString())
+                        ConfigRow(label = "MongoDB Remote Target", value = if (state.config.dbConnectionUri.contains("@")) state.config.dbConnectionUri.substringAfter("@") else "cluster0.fithesf.mongodb.net")
 
                         Spacer(modifier = Modifier.height(14.dp))
 
@@ -215,10 +216,24 @@ fun SettingsScreen(
                         Spacer(modifier = Modifier.height(12.dp))
 
                         ConfigRow(label = "Connection State", value = state.mongoStatus)
+                        ConfigRow(label = "Config Source", value = "Firebase Remote Config (DB_connection)")
+                        ConfigRow(label = "Database Name", value = "ExpensesManagement")
                         ConfigRow(label = "Local Cached Transactions", value = state.totalLocalExpensesCount.toString())
-                        ConfigRow(label = "Atlas Cluster Region", value = state.config.mongoClusterRegion)
 
                         Spacer(modifier = Modifier.height(14.dp))
+
+                        Button(
+                            onClick = { viewModel.dispatchEvent(SettingsEvent.SyncMongoAtlas) },
+                            colors = ButtonDefaults.buttonColors(containerColor = EmeraldSuccess),
+                            shape = RoundedCornerShape(10.dp),
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            Icon(Icons.Default.Storage, contentDescription = null, modifier = Modifier.size(16.dp))
+                            Spacer(modifier = Modifier.width(6.dp))
+                            Text("Trigger MongoDB Atlas Synchronization", fontSize = 13.sp, color = TextPrimaryDark)
+                        }
+
+                        Spacer(modifier = Modifier.height(8.dp))
 
                         OutlinedButton(
                             onClick = { viewModel.dispatchEvent(SettingsEvent.ClearLocalDatabase) },

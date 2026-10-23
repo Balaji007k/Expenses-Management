@@ -5,6 +5,7 @@ plugins {
     alias(libs.plugins.kotlin.serialization)
     alias(libs.plugins.ksp)
     alias(libs.plugins.hilt.android)
+    alias(libs.plugins.google.services)
 }
 
 android {
@@ -103,6 +104,10 @@ dependencies {
     implementation(libs.okhttp.logging)
     implementation(libs.retrofit)
     implementation(libs.retrofit.serialization)
+
+    // MongoDB Atlas Driver & BSON
+    implementation(libs.mongodb.driver.sync)
+    implementation(libs.mongodb.bson)
 
     // Firebase (Remote Config, Analytics)
     implementation(platform(libs.firebase.bom))

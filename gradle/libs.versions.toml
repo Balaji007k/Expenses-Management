@@ -16,6 +16,7 @@ googleServices = "4.4.2"
 firebaseBom = "33.5.1"
 geminiAi = "0.9.0"
 realmKotlin = "1.16.0"
+mongodbDriver = "5.1.4"
 ksp = "2.0.21-1.0.25"
 junit = "4.13.2"
 junitVersion = "1.2.1"
@@ -55,9 +56,11 @@ okhttp-logging = { group = "com.squareup.okhttp3", name = "logging-interceptor",
 retrofit = { group = "com.squareup.retrofit2", name = "retrofit", version.ref = "retrofit" }
 retrofit-serialization = { group = "com.squareup.retrofit2", name = "converter-kotlinx-serialization", version.ref = "retrofit" }
 
-# Database (MongoDB Realm SDK)
+# Database (MongoDB Driver & Realm SDK)
 realm-kotlin-base = { group = "io.realm.kotlin", name = "library-base", version.ref = "realmKotlin" }
 realm-kotlin-sync = { group = "io.realm.kotlin", name = "library-sync", version.ref = "realmKotlin" }
+mongodb-driver-sync = { group = "org.mongodb", name = "mongodb-driver-sync", version.ref = "mongodbDriver" }
+mongodb-bson = { group = "org.mongodb", name = "bson", version.ref = "mongodbDriver" }
 
 # Firebase (Remote Config, Analytics, Core)
 firebase-bom = { group = "com.google.firebase", name = "firebase-bom", version.ref = "firebaseBom" }

@@ -39,7 +39,7 @@ class FirebaseConfigManagerImpl @Inject constructor(
             if (FirebaseApp.getApps(context).isNotEmpty()) {
                 remoteConfig = FirebaseRemoteConfig.getInstance().apply {
                     val configSettings = FirebaseRemoteConfigSettings.Builder()
-                        .setMinimumFetchIntervalInSeconds(3600)
+                        .setMinimumFetchIntervalInSeconds(0)
                         .build()
                     setConfigSettingsAsync(configSettings)
                     setDefaultsAsync(getDefaultsMap())
@@ -60,7 +60,8 @@ class FirebaseConfigManagerImpl @Inject constructor(
             ConfigKeys.KEY_SYNC_INTERVAL_MINUTES to 15L,
             ConfigKeys.KEY_MONGO_REGION to "us-east-1",
             ConfigKeys.KEY_RECEIPT_SCAN_ENABLED to true,
-            ConfigKeys.KEY_WELCOME_MESSAGE to "Welcome to Enterprise Expense Management"
+            ConfigKeys.KEY_WELCOME_MESSAGE to "Welcome to Enterprise Expense Management",
+            ConfigKeys.KEY_DB_CONNECTION to "mongodb+srv://teabuff_db_user:1XPvy4K8hHmzZqfg@cluster0.fithesf.mongodb.net/ExpensesManagement"
         )
     }
 
@@ -92,7 +93,8 @@ class FirebaseConfigManagerImpl @Inject constructor(
             syncIntervalMinutes = rc.getLong(ConfigKeys.KEY_SYNC_INTERVAL_MINUTES).let { if (it <= 0) 15L else it },
             mongoClusterRegion = rc.getString(ConfigKeys.KEY_MONGO_REGION).ifEmpty { "us-east-1" },
             isReceiptScanEnabled = rc.getBoolean(ConfigKeys.KEY_RECEIPT_SCAN_ENABLED),
-            welcomeMessage = rc.getString(ConfigKeys.KEY_WELCOME_MESSAGE).ifEmpty { "Welcome to Enterprise Expense Management" }
+            welcomeMessage = rc.getString(ConfigKeys.KEY_WELCOME_MESSAGE).ifEmpty { "Welcome to Enterprise Expense Management" },
+            dbConnectionUri = rc.getString(ConfigKeys.KEY_DB_CONNECTION).ifEmpty { "mongodb+srv://teabuff_db_user:1XPvy4K8hHmzZqfg@cluster0.fithesf.mongodb.net/ExpensesManagement" }
         )
     }
 

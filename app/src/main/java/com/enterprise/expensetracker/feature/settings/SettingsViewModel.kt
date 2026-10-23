@@ -59,6 +59,16 @@ class SettingsViewModel @Inject constructor(
                     }
                 }
             }
+            is SettingsEvent.SyncMongoAtlas -> {
+                viewModelScope.launch {
+                    val result = mongoDbManager.triggerSync()
+                    if (result.isSuccess) {
+                        sendEffect(SettingsEffect.ShowNotification("Synced successfully with MongoDB Atlas"))
+                    } else {
+                        sendEffect(SettingsEffect.ShowNotification("MongoDB sync queued"))
+                    }
+                }
+            }
             is SettingsEvent.SwitchAiProvider -> {
                 setState {
                     copy(

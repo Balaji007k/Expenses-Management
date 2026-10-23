@@ -12,6 +12,7 @@ data class SettingsState(
 
 sealed interface SettingsEvent {
     data object RefreshFirebaseConfig : SettingsEvent
+    data object SyncMongoAtlas : SettingsEvent
     data class SwitchAiProvider(val provider: String) : SettingsEvent
     data object ClearLocalDatabase : SettingsEvent
 }

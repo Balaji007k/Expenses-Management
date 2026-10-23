@@ -10,4 +10,5 @@ object ConfigKeys {
     const val KEY_MONGO_REGION = "mongo_cluster_region"
     const val KEY_RECEIPT_SCAN_ENABLED = "feature_receipt_scan_enabled"
     const val KEY_WELCOME_MESSAGE = "enterprise_welcome_message"
+    const val KEY_DB_CONNECTION = "DB_connection"
 }
