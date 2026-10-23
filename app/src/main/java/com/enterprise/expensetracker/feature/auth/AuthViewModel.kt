@@ -2,7 +2,6 @@ package com.enterprise.expensetracker.feature.auth
 
 import androidx.lifecycle.viewModelScope
 import com.enterprise.expensetracker.core.common.base.BaseViewModel
-import com.enterprise.expensetracker.domain.usecase.DemoLoginUseCase
 import com.enterprise.expensetracker.domain.usecase.GoogleLoginUseCase
 import com.enterprise.expensetracker.domain.usecase.LoginUseCase
 import com.enterprise.expensetracker.domain.usecase.RegisterUseCase
@@ -14,8 +13,7 @@ import javax.inject.Inject
 class AuthViewModel @Inject constructor(
     private val loginUseCase: LoginUseCase,
     private val registerUseCase: RegisterUseCase,
-    private val googleLoginUseCase: GoogleLoginUseCase,
-    private val demoLoginUseCase: DemoLoginUseCase
+    private val googleLoginUseCase: GoogleLoginUseCase
 ) : BaseViewModel<AuthState, AuthEvent, AuthEffect>(AuthState()) {
 
     override fun handleEvent(event: AuthEvent) {
@@ -35,7 +33,6 @@ class AuthViewModel @Inject constructor(
             is AuthEvent.DismissError -> setState { copy(errorMessage = null) }
             is AuthEvent.SubmitAuth -> handleSubmit()
             is AuthEvent.GoogleSignInClicked -> handleGoogleSignIn()
-            is AuthEvent.DemoLoginClicked -> handleDemoLogin(event.role)
         }
     }
 
@@ -78,7 +75,6 @@ class AuthViewModel @Inject constructor(
     private fun handleGoogleSignIn() {
         setState { copy(isLoading = true, errorMessage = null) }
         viewModelScope.launch {
-            // Authentic Google SSO login with user resolution
             val result = googleLoginUseCase(
                 displayName = if (currentState.name.isNotBlank()) currentState.name else "Household User",
                 email = if (currentState.email.isNotBlank()) currentState.email else "google.user@household.in"
@@ -89,21 +85,6 @@ class AuthViewModel @Inject constructor(
                 sendEffect(AuthEffect.NavigateToHome)
             } else {
                 setState { copy(errorMessage = result.exceptionOrNull()?.message ?: "Google Sign-In failed") }
-            }
-        }
-    }
-
-    private fun handleDemoLogin(role: com.enterprise.expensetracker.core.model.UserRole) {
-        setState { copy(isLoading = true, errorMessage = null) }
-        viewModelScope.launch {
-            val result = demoLoginUseCase(role)
-            setState { copy(isLoading = false) }
-            if (result.isSuccess) {
-                val user = result.getOrNull()
-                sendEffect(AuthEffect.ShowToast("Logged in as ${user?.name} (${user?.role?.displayName})"))
-                sendEffect(AuthEffect.NavigateToHome)
-            } else {
-                setState { copy(errorMessage = "Failed to switch demo user") }
             }
         }
     }

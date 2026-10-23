@@ -28,6 +28,9 @@ import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
@@ -43,7 +46,7 @@ import com.enterprise.expensetracker.core.designsystem.theme.BrandBlue
 import com.enterprise.expensetracker.core.designsystem.theme.EmeraldSuccess
 import com.enterprise.expensetracker.core.designsystem.theme.PurpleAi
 import com.enterprise.expensetracker.core.designsystem.theme.TextPrimaryDark
-import java.util.Locale
+import com.enterprise.expensetracker.feature.expenses.AddExpenseDialog
 
 @Composable
 fun DashboardScreen(
@@ -53,6 +56,16 @@ fun DashboardScreen(
     modifier: Modifier = Modifier
 ) {
     val state by viewModel.uiState.collectAsStateWithLifecycle()
+    var isAddDialogOpen by remember { mutableStateOf(false) }
+
+    val userTitle = state.currentUser?.name ?: "Household"
+    val userSubtitle = if (state.currentUser?.isHeadOfHousehold == true) {
+        "👑 Head of Household • Full Access"
+    } else if (state.currentUser != null) {
+        "👤 ${state.currentUser?.relationship?.displayName ?: "Member"} • My Expenses"
+    } else {
+        "Home Budget & Family Expenses"
+    }
 
     Column(
         modifier = modifier
@@ -60,9 +73,9 @@ fun DashboardScreen(
             .background(MaterialTheme.colorScheme.background)
     ) {
         ExpenseTopBar(
-            title = if (state.currentUser != null) "Hi, ${state.currentUser?.name} 👋" else "Home Expenses",
-            subtitle = if (state.currentUser?.isHeadOfHousehold == true) "👑 Head of Household • Family Ledger" else "👤 Family Member • Personal Ledger",
-            aiProviderName = "Smart Advisor"
+            title = "$userTitle's Home",
+            subtitle = userSubtitle,
+            aiProviderName = state.activeAiEngine
         )
 
         LazyColumn(
@@ -70,23 +83,24 @@ fun DashboardScreen(
             contentPadding = PaddingValues(horizontal = 20.dp, vertical = 12.dp),
             verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
-            // Summary Metrics Row
+            // High-Level Metric Cards
             item {
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.spacedBy(12.dp)
                 ) {
                     SummaryMetricCard(
-                        title = "TOTAL SPENT",
-                        value = "${state.currencySymbol}${String.format(Locale.US, "%.2f", state.totalSpendThisMonth)}",
-                        subtitle = "This Month",
+                        title = "Spend This Month",
+                        value = "₹${"%,.2f".format(state.totalSpendThisMonth)}",
+                        subtitle = "Budget: ₹${"%,.0f".format(state.monthlyBudget)}",
                         icon = Icons.Default.CreditCard,
                         iconTint = BrandBlue,
                         modifier = Modifier.weight(1f)
                     )
+
                     SummaryMetricCard(
-                        title = "PREDICTED",
-                        value = "${state.currencySymbol}${String.format(Locale.US, "%.2f", state.predictedEndOfMonthSpend)}",
+                        title = "Forecasted Spend",
+                        value = "₹${"%,.2f".format(state.predictedEndOfMonthSpend)}",
                         subtitle = "Estimated Month-End",
                         icon = Icons.Default.TrendingUp,
                         iconTint = PurpleAi,
@@ -102,14 +116,14 @@ fun DashboardScreen(
                     horizontalArrangement = Arrangement.spacedBy(10.dp)
                 ) {
                     Button(
-                        onClick = { viewModel.dispatchEvent(DashboardEvent.AddDemoExpense) },
+                        onClick = { isAddDialogOpen = true },
                         colors = ButtonDefaults.buttonColors(containerColor = BrandBlue),
                         shape = RoundedCornerShape(12.dp),
                         modifier = Modifier.weight(1f)
                     ) {
                         Icon(Icons.Default.Add, contentDescription = null, modifier = Modifier.size(16.dp))
                         Spacer(modifier = Modifier.width(6.dp))
-                        Text("Add Sample", fontSize = 13.sp)
+                        Text("Add Expense", fontSize = 13.sp)
                     }
 
                     OutlinedButton(
@@ -158,9 +172,9 @@ fun DashboardScreen(
                 item {
                     EmptyStateView(
                         title = "No Home Expenses Yet",
-                        description = "Tap '+ Add Sample' to quickly populate typical household bills and groceries.",
-                        actionButtonText = "Add Sample Expense",
-                        onActionClick = { viewModel.dispatchEvent(DashboardEvent.AddDemoExpense) }
+                        description = "Start recording your household groceries, utilities, and bills to track family spend.",
+                        actionButtonText = "Add First Expense",
+                        onActionClick = { isAddDialogOpen = true }
                     )
                 }
             } else {
@@ -169,5 +183,15 @@ fun DashboardScreen(
                 }
             }
         }
+    }
+
+    if (isAddDialogOpen) {
+        AddExpenseDialog(
+            onDismiss = { isAddDialogOpen = false },
+            onConfirm = { title, amount, category, notes ->
+                viewModel.dispatchEvent(DashboardEvent.AddExpenseSubmitted(title, amount, category, notes))
+                isAddDialogOpen = false
+            }
+        )
     }
 }

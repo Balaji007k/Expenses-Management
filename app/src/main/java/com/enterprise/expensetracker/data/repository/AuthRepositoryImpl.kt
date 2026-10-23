@@ -31,7 +31,7 @@ import javax.inject.Singleton
 
 /**
  * Enterprise Production Auth & Family Repository Implementation.
- * All user profiles, roles, and family memberships are stored and managed exclusively in MongoDB Atlas.
+ * Live production testing with all profiles and memberships managed exclusively in MongoDB Atlas.
  */
 @Singleton
 class AuthRepositoryImpl @Inject constructor(
@@ -56,81 +56,40 @@ class AuthRepositoryImpl @Inject constructor(
         }
     }
 
-    private val _sessionUserId = MutableStateFlow<String?>(
-        sessionPrefs.getString("session_user_id", "head_user_001")
-    )
+    private val _sessionUserId: MutableStateFlow<String?>
 
     private val _currentUser = MutableStateFlow<UserProfile?>(null)
 
     init {
+        // Clear any old mock demo sessions
+        val savedSession = sessionPrefs.getString("session_user_id", null)
+        val initialSession = if (savedSession in listOf("head_user_001", "member_user_002", "member_user_003")) {
+            sessionPrefs.edit().remove("session_user_id").apply()
+            null
+        } else {
+            savedSession
+        }
+        _sessionUserId = MutableStateFlow(initialSession)
+
         CoroutineScope(dispatchers.io).launch {
-            // Seed default household users in MongoDB if store is completely empty
-            ensureDefaultHouseholdInMongo()
+            // Purge leftover demo accounts from MongoDB store
+            mongoDbManager.userDao.deleteUserById("head_user_001")
+            mongoDbManager.userDao.deleteUserById("member_user_002")
+            mongoDbManager.userDao.deleteUserById("member_user_003")
 
             // Continuously observe users from MongoDB and update current user based on active session
             combine(
                 mongoDbManager.userDao.getAllUsersFlow(),
                 _sessionUserId
             ) { users, activeId ->
-                if (users.isEmpty()) {
+                if (activeId.isNullOrBlank() || users.isEmpty()) {
                     null
                 } else {
-                    val active = if (activeId != null) {
-                        users.firstOrNull { it._id == activeId }
-                    } else {
-                        users.firstOrNull { it.role == UserRole.HEAD_OF_HOUSEHOLD.name } ?: users.firstOrNull()
-                    }
-                    active?.toDomain()
+                    users.firstOrNull { it._id == activeId }?.toDomain()
                 }
             }.collect { resolvedUser ->
                 _currentUser.value = resolvedUser
             }
-        }
-    }
-
-    private suspend fun ensureDefaultHouseholdInMongo() {
-        val existingHead = mongoDbManager.userDao.getUserById("head_user_001")
-        if (existingHead == null) {
-            val familyId = "family_sharma_primary"
-            val defaultUsers = listOf(
-                UserMongoEntity(
-                    _id = "head_user_001",
-                    name = "Ramesh Sharma",
-                    email = "ramesh.sharma@home.in",
-                    passwordHash = "password".hashCode().toString(),
-                    role = UserRole.HEAD_OF_HOUSEHOLD.name,
-                    relationship = FamilyRelationship.HEAD.name,
-                    familyId = familyId,
-                    authProvider = "PASSWORD",
-                    createdAt = System.currentTimeMillis(),
-                    updatedAt = System.currentTimeMillis()
-                ),
-                UserMongoEntity(
-                    _id = "member_user_002",
-                    name = "Priya Sharma",
-                    email = "priya.sharma@home.in",
-                    passwordHash = "password".hashCode().toString(),
-                    role = UserRole.FAMILY_MEMBER.name,
-                    relationship = FamilyRelationship.SPOUSE.name,
-                    familyId = familyId,
-                    authProvider = "PASSWORD",
-                    createdAt = System.currentTimeMillis(),
-                    updatedAt = System.currentTimeMillis()
-                ),
-                UserMongoEntity(
-                    _id = "member_user_003",
-                    name = "Aarav Sharma",
-                    email = "aarav.sharma@home.in",
-                    passwordHash = "password".hashCode().toString(),
-                    role = UserRole.FAMILY_MEMBER.name,
-                    relationship = FamilyRelationship.CHILD.name,
-                    familyId = familyId,
-                    authProvider = "PASSWORD",
-                    createdAt = System.currentTimeMillis(),
-                    updatedAt = System.currentTimeMillis()
-                )
-            )
-            defaultUsers.forEach { mongoDbManager.userDao.upsertUser(it) }
         }
     }
 
@@ -151,10 +110,10 @@ class AuthRepositoryImpl @Inject constructor(
     override suspend fun getCurrentUser(): UserProfile? = withContext(dispatchers.io) {
         _currentUser.value ?: run {
             val session = _sessionUserId.value
-            if (session != null) {
+            if (!session.isNullOrBlank()) {
                 mongoDbManager.userDao.getUserById(session)?.toDomain()
             } else {
-                mongoDbManager.userDao.getUserById("head_user_001")?.toDomain()
+                null
             }
         }
     }
@@ -310,25 +269,7 @@ class AuthRepositoryImpl @Inject constructor(
     }
 
     override suspend fun loginAsDemo(role: UserRole): Result<UserProfile> {
-        return withContext(dispatchers.io) {
-            ensureDefaultHouseholdInMongo()
-            val allUsers = mongoDbManager.userDao.getAllUsersFlow()
-            // Select user by role from MongoDB
-            val target = if (role == UserRole.HEAD_OF_HOUSEHOLD) {
-                mongoDbManager.userDao.getUserById("head_user_001")
-            } else {
-                mongoDbManager.userDao.getUserById("member_user_002")
-            }
-
-            if (target != null) {
-                val profile = target.toDomain()
-                setSession(profile.id)
-                _currentUser.value = profile
-                Result.success(profile)
-            } else {
-                Result.failure(Exception("Demo user not found in MongoDB"))
-            }
-        }
+        return Result.failure(UnsupportedOperationException("Demo accounts disabled for live production testing"))
     }
 
     override suspend fun logout(): Result<Unit> {

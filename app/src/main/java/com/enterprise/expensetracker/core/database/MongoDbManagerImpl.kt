@@ -344,6 +344,16 @@ class MongoDbManagerImpl @Inject constructor(
             try {
                 val collection = expensesCollection
                 if (collection != null) {
+                    // Purge any leftover demo expenses from MongoDB Atlas
+                    try {
+                        collection.deleteMany(
+                            Filters.or(
+                                Filters.`in`("createdByUserId", "head_user_001", "member_user_002", "member_user_003"),
+                                Filters.eq("ownerId", "household_user")
+                            )
+                        )
+                    } catch (_: Throwable) {}
+
                     // 1. Push pending local expenses to MongoDB Atlas
                     val pending = expenseDao.getPendingSyncExpenses()
                     for (entity in pending) {
@@ -377,6 +387,10 @@ class MongoDbManagerImpl @Inject constructor(
                     while (remoteCursor.hasNext()) {
                         val doc = remoteCursor.next()
                         val id = doc.getString("_id") ?: doc.getObjectId("_id")?.toHexString() ?: continue
+                        val creatorId = doc.getString("createdByUserId") ?: ""
+                        if (creatorId in listOf("head_user_001", "member_user_002", "member_user_003") || doc.getString("ownerId") == "household_user") {
+                            continue
+                        }
                         val remoteEntity = ExpenseMongoEntity(
                             _id = id,
                             ownerId = doc.getString("ownerId") ?: "user_default",
@@ -404,8 +418,19 @@ class MongoDbManagerImpl @Inject constructor(
                 // 3. Bidirectional User & Family Member Sync with MongoDB Atlas
                 val usersCol = usersCollection
                 if (usersCol != null) {
+                    // Purge any demo accounts from MongoDB Atlas
+                    try {
+                        usersCol.deleteMany(
+                            Filters.`in`("_id", "head_user_001", "member_user_002", "member_user_003")
+                        )
+                        localUsersStore.remove("head_user_001")
+                        localUsersStore.remove("member_user_002")
+                        localUsersStore.remove("member_user_003")
+                    } catch (_: Throwable) {}
+
                     // Push local users to Atlas
                     for (entity in localUsersStore.values) {
+                        if (entity._id in listOf("head_user_001", "member_user_002", "member_user_003")) continue
                         val userDoc = Document("_id", entity._id)
                             .append("name", entity.name)
                             .append("email", entity.email)
@@ -430,6 +455,7 @@ class MongoDbManagerImpl @Inject constructor(
                     while (userCursor.hasNext()) {
                         val doc = userCursor.next()
                         val id = doc.getString("_id") ?: doc.getObjectId("_id")?.toHexString() ?: continue
+                        if (id in listOf("head_user_001", "member_user_002", "member_user_003")) continue
                         val userEntity = UserMongoEntity(
                             _id = id,
                             name = doc.getString("name") ?: "",

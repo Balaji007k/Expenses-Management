@@ -1,5 +1,6 @@
 package com.enterprise.expensetracker.feature.dashboard
 
+import com.enterprise.expensetracker.core.model.Category
 import com.enterprise.expensetracker.core.model.Expense
 import com.enterprise.expensetracker.core.model.UserProfile
 import com.enterprise.expensetracker.core.model.ai.AiInsight
@@ -19,7 +20,7 @@ data class DashboardState(
 sealed interface DashboardEvent {
     data object RefreshData : DashboardEvent
     data object SyncData : DashboardEvent
-    data object AddDemoExpense : DashboardEvent
+    data class AddExpenseSubmitted(val title: String, val amount: Double, val category: Category, val notes: String?) : DashboardEvent
     data class DeleteExpense(val id: String) : DashboardEvent
 }
 

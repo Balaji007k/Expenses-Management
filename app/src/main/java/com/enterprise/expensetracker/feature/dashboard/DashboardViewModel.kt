@@ -31,8 +31,6 @@ class DashboardViewModel @Inject constructor(
     private val getCurrentUserUseCase: GetCurrentUserUseCase
 ) : BaseViewModel<DashboardState, DashboardEvent, DashboardEffect>(DashboardState()) {
 
-    private var demoIndex = 0
-
     init {
         loadData()
     }
@@ -102,62 +100,23 @@ class DashboardViewModel @Inject constructor(
                     }
                 }
             }
-            is DashboardEvent.AddDemoExpense -> {
+            is DashboardEvent.AddExpenseSubmitted -> {
                 viewModelScope.launch {
-                    val homeDemoList = listOf(
-                        Expense(
-                            title = "Weekly Groceries & Vegetables",
-                            amount = 2450.00,
-                            category = Category.GROCERIES_AND_FOOD,
-                            currency = Currency.INR,
-                            notes = "Supermarket fresh food, milk and vegetables",
-                            syncStatus = SyncStatus.PENDING_SYNC
-                        ),
-                        Expense(
-                            title = "Electricity & Water Bill",
-                            amount = 1850.00,
-                            category = Category.UTILITIES_AND_BILLS,
-                            currency = Currency.INR,
-                            notes = "Monthly state electricity board",
-                            syncStatus = SyncStatus.PENDING_SYNC
-                        ),
-                        Expense(
-                            title = "Home High-Speed Wi-Fi",
-                            amount = 999.00,
-                            category = Category.INTERNET_AND_MOBILE,
-                            currency = Currency.INR,
-                            notes = "Fiber broadband monthly bill",
-                            syncStatus = SyncStatus.PENDING_SYNC
-                        ),
-                        Expense(
-                            title = "Kids School Supplies & Books",
-                            amount = 1200.00,
-                            category = Category.KIDS_AND_EDUCATION,
-                            currency = Currency.INR,
-                            notes = "Stationery, notebooks and school project",
-                            syncStatus = SyncStatus.PENDING_SYNC
-                        ),
-                        Expense(
-                            title = "Family Dinner & Weekend Treat",
-                            amount = 1650.00,
-                            category = Category.DINING_AND_OUTING,
-                            currency = Currency.INR,
-                            notes = "Sunday family dinner",
-                            syncStatus = SyncStatus.PENDING_SYNC
-                        )
-                    )
-
                     val user = currentState.currentUser
-                    val baseDemo = homeDemoList[demoIndex % homeDemoList.size]
-                    val demo = baseDemo.copy(
+                    val newExpense = Expense(
+                        title = event.title,
+                        amount = event.amount,
+                        category = event.category,
+                        currency = Currency.INR,
+                        notes = event.notes,
+                        syncStatus = SyncStatus.PENDING_SYNC,
                         createdByUserId = user?.id ?: "user_default",
                         createdByUserName = user?.name ?: "Family Head",
                         createdByRelationship = user?.relationship?.displayName ?: "Head",
                         familyId = user?.familyId ?: "family_primary"
                     )
-                    demoIndex++
-                    addExpenseUseCase(demo)
-                    sendEffect(DashboardEffect.ShowToast("Added: ${demo.title} (by ${demo.createdByUserName})"))
+                    addExpenseUseCase(newExpense)
+                    sendEffect(DashboardEffect.ShowToast("Expense added by ${newExpense.createdByUserName}"))
                 }
             }
             is DashboardEvent.DeleteExpense -> {

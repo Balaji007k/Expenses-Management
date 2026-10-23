@@ -16,24 +16,33 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.AutoAwesome
 import androidx.compose.material.icons.filled.CloudDone
 import androidx.compose.material.icons.filled.DeleteForever
+import androidx.compose.material.icons.filled.Logout
+import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.Sync
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -55,6 +64,7 @@ fun SettingsScreen(
     modifier: Modifier = Modifier
 ) {
     val state by viewModel.uiState.collectAsStateWithLifecycle()
+    var showSignOutConfirm by remember { mutableStateOf(false) }
 
     Column(
         modifier = modifier
@@ -63,7 +73,7 @@ fun SettingsScreen(
     ) {
         ExpenseTopBar(
             title = "Settings",
-            subtitle = "Household preferences & cloud sync",
+            subtitle = "Household preferences & account session",
             aiProviderName = null
         )
 
@@ -72,7 +82,122 @@ fun SettingsScreen(
             contentPadding = PaddingValues(horizontal = 20.dp, vertical = 12.dp),
             verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
-            // Household Preferences
+            // Prominent User Account & Sign Out Card
+            item {
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clip(RoundedCornerShape(18.dp))
+                        .background(CardBackgroundDark)
+                        .border(1.dp, CardBorderDark, RoundedCornerShape(18.dp))
+                        .padding(18.dp)
+                ) {
+                    Column {
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Icon(Icons.Default.Person, contentDescription = null, tint = BrandBlue, modifier = Modifier.size(20.dp))
+                                Spacer(modifier = Modifier.width(8.dp))
+                                Text(
+                                    text = "Active Account & Session",
+                                    fontSize = 16.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    color = TextPrimaryDark
+                                )
+                            }
+                            state.currentUser?.let { user ->
+                                val isHead = user.isHeadOfHousehold
+                                Box(
+                                    modifier = Modifier
+                                        .clip(RoundedCornerShape(8.dp))
+                                        .background(if (isHead) PurpleAi.copy(alpha = 0.2f) else BrandBlue.copy(alpha = 0.2f))
+                                        .padding(horizontal = 8.dp, vertical = 4.dp)
+                                ) {
+                                    Text(
+                                        text = if (isHead) "👑 Head" else "👤 Member",
+                                        fontSize = 11.sp,
+                                        fontWeight = FontWeight.Bold,
+                                        color = if (isHead) PurpleAi else BrandBlue
+                                    )
+                                }
+                            }
+                        }
+
+                        Spacer(modifier = Modifier.height(14.dp))
+
+                        val user = state.currentUser
+                        if (user != null) {
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Box(
+                                    modifier = Modifier
+                                        .size(46.dp)
+                                        .clip(CircleShape)
+                                        .background(if (user.isHeadOfHousehold) PurpleAi else BrandBlue),
+                                    contentAlignment = Alignment.Center
+                                ) {
+                                    Text(
+                                        text = user.name.take(1).uppercase(),
+                                        fontSize = 20.sp,
+                                        fontWeight = FontWeight.Bold,
+                                        color = TextPrimaryDark
+                                    )
+                                }
+                                Spacer(modifier = Modifier.width(12.dp))
+                                Column {
+                                    Text(
+                                        text = user.name,
+                                        fontSize = 16.sp,
+                                        fontWeight = FontWeight.Bold,
+                                        color = TextPrimaryDark
+                                    )
+                                    Text(
+                                        text = user.email,
+                                        fontSize = 12.sp,
+                                        color = TextMutedDark
+                                    )
+                                    Text(
+                                        text = "Role: ${user.role.displayName} • ${user.relationship.displayName}",
+                                        fontSize = 11.sp,
+                                        color = TextMutedDark
+                                    )
+                                }
+                            }
+
+                            Spacer(modifier = Modifier.height(14.dp))
+
+                            OutlinedButton(
+                                onClick = { showSignOutConfirm = true },
+                                shape = RoundedCornerShape(12.dp),
+                                colors = ButtonDefaults.outlinedButtonColors(contentColor = RoseAlert),
+                                border = ButtonDefaults.outlinedButtonBorder.copy(
+                                    brush = Brush.linearGradient(listOf(RoseAlert.copy(alpha = 0.6f), RoseAlert))
+                                ),
+                                modifier = Modifier.fillMaxWidth()
+                            ) {
+                                Icon(Icons.Default.Logout, contentDescription = null, modifier = Modifier.size(16.dp), tint = RoseAlert)
+                                Spacer(modifier = Modifier.width(8.dp))
+                                Text(
+                                    text = "Sign Out of Account",
+                                    fontSize = 13.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    color = RoseAlert
+                                )
+                            }
+                        } else {
+                            Text(
+                                text = "No active session logged in.",
+                                fontSize = 13.sp,
+                                color = TextMutedDark
+                            )
+                        }
+                    }
+                }
+            }
+
+            // Household Budget Preferences
             item {
                 Box(
                     modifier = Modifier
@@ -231,6 +356,46 @@ fun SettingsScreen(
                 }
             }
         }
+    }
+
+    // Sign Out Confirmation Dialog
+    if (showSignOutConfirm) {
+        AlertDialog(
+            onDismissRequest = { showSignOutConfirm = false },
+            containerColor = CardBackgroundDark,
+            title = {
+                Text(
+                    text = "Sign Out of Account?",
+                    fontSize = 18.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = TextPrimaryDark
+                )
+            },
+            text = {
+                Text(
+                    text = "Are you sure you want to sign out from this device? You can log back in at any time.",
+                    fontSize = 14.sp,
+                    color = TextMutedDark
+                )
+            },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        showSignOutConfirm = false
+                        viewModel.dispatchEvent(SettingsEvent.SignOut)
+                    },
+                    colors = ButtonDefaults.buttonColors(containerColor = RoseAlert),
+                    shape = RoundedCornerShape(8.dp)
+                ) {
+                    Text("Sign Out", color = TextPrimaryDark, fontWeight = FontWeight.Bold)
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showSignOutConfirm = false }) {
+                    Text("Cancel", color = TextMutedDark)
+                }
+            }
+        )
     }
 }
 

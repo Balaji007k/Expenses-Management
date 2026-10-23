@@ -439,57 +439,7 @@ fun AuthScreen(
                 }
             }
 
-            Spacer(modifier = Modifier.height(24.dp))
-
-            // Quick Role Switch Demo Box (for easy pair-testing of roles)
-            Box(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .clip(RoundedCornerShape(14.dp))
-                    .background(SlateDark800)
-                    .border(1.dp, CardBorderDark, RoundedCornerShape(14.dp))
-                    .padding(14.dp)
-            ) {
-                Column {
-                    Text(
-                        text = "⚡ Quick Demo Role Testing",
-                        fontSize = 12.sp,
-                        fontWeight = FontWeight.Bold,
-                        color = AmberWarning
-                    )
-                    Spacer(modifier = Modifier.height(4.dp))
-                    Text(
-                        text = "Instantly switch roles to test full Admin vs Member permissions:",
-                        fontSize = 11.sp,
-                        color = TextMutedDark,
-                        lineHeight = 15.sp
-                    )
-                    Spacer(modifier = Modifier.height(10.dp))
-
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.spacedBy(8.dp)
-                    ) {
-                        Button(
-                            onClick = { viewModel.dispatchEvent(AuthEvent.DemoLoginClicked(UserRole.HEAD_OF_HOUSEHOLD)) },
-                            colors = ButtonDefaults.buttonColors(containerColor = PurpleAi),
-                            shape = RoundedCornerShape(8.dp),
-                            modifier = Modifier.weight(1f)
-                        ) {
-                            Text("👑 Head User", fontSize = 11.sp, fontWeight = FontWeight.Bold)
-                        }
-
-                        Button(
-                            onClick = { viewModel.dispatchEvent(AuthEvent.DemoLoginClicked(UserRole.FAMILY_MEMBER)) },
-                            colors = ButtonDefaults.buttonColors(containerColor = SlateDark700),
-                            shape = RoundedCornerShape(8.dp),
-                            modifier = Modifier.weight(1f)
-                        ) {
-                            Text("👤 Member", fontSize = 11.sp, fontWeight = FontWeight.Bold)
-                        }
-                    }
-                }
-            }
+            Spacer(modifier = Modifier.height(16.dp))
         }
     }
 }

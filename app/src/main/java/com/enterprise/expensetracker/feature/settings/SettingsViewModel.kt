@@ -3,8 +3,10 @@ package com.enterprise.expensetracker.feature.settings
 import androidx.lifecycle.viewModelScope
 import com.enterprise.expensetracker.core.common.base.BaseViewModel
 import com.enterprise.expensetracker.core.database.MongoDbManager
+import com.enterprise.expensetracker.domain.usecase.GetCurrentUserUseCase
 import com.enterprise.expensetracker.domain.usecase.GetDynamicConfigUseCase
 import com.enterprise.expensetracker.domain.usecase.GetExpensesUseCase
+import com.enterprise.expensetracker.domain.usecase.LogoutUseCase
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.launch
 import javax.inject.Inject
@@ -13,6 +15,8 @@ import javax.inject.Inject
 class SettingsViewModel @Inject constructor(
     private val getDynamicConfigUseCase: GetDynamicConfigUseCase,
     private val getExpensesUseCase: GetExpensesUseCase,
+    private val getCurrentUserUseCase: GetCurrentUserUseCase,
+    private val logoutUseCase: LogoutUseCase,
     private val mongoDbManager: MongoDbManager
 ) : BaseViewModel<SettingsState, SettingsEvent, SettingsEffect>(SettingsState()) {
 
@@ -21,6 +25,12 @@ class SettingsViewModel @Inject constructor(
     }
 
     private fun loadSettings() {
+        viewModelScope.launch {
+            getCurrentUserUseCase().collect { user ->
+                setState { copy(currentUser = user) }
+            }
+        }
+
         viewModelScope.launch {
             getDynamicConfigUseCase.observeConfig().collect { config ->
                 setState {
@@ -82,6 +92,12 @@ class SettingsViewModel @Inject constructor(
                 viewModelScope.launch {
                     mongoDbManager.expenseDao.clearAll()
                     sendEffect(SettingsEffect.ShowNotification("Expense ledger reset successfully"))
+                }
+            }
+            is SettingsEvent.SignOut -> {
+                viewModelScope.launch {
+                    logoutUseCase()
+                    sendEffect(SettingsEffect.ShowNotification("Signed out successfully"))
                 }
             }
         }

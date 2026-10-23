@@ -42,6 +42,9 @@ import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -75,6 +78,7 @@ fun FamilyScreen(
     modifier: Modifier = Modifier
 ) {
     val state by viewModel.uiState.collectAsStateWithLifecycle()
+    var showSignOutConfirm by remember { mutableStateOf(false) }
 
     LaunchedEffect(Unit) {
         viewModel.effect.collect { effect ->
@@ -159,12 +163,21 @@ fun FamilyScreen(
                                     }
                                 }
 
-                                IconButton(onClick = { viewModel.dispatchEvent(FamilyEvent.OpenEditProfileDialog) }) {
-                                    Icon(
-                                        imageVector = Icons.Default.Edit,
-                                        contentDescription = "Edit Profile",
-                                        tint = TextMutedDark
-                                    )
+                                Row(verticalAlignment = Alignment.CenterVertically) {
+                                    IconButton(onClick = { viewModel.dispatchEvent(FamilyEvent.OpenEditProfileDialog) }) {
+                                        Icon(
+                                            imageVector = Icons.Default.Edit,
+                                            contentDescription = "Edit Profile",
+                                            tint = TextMutedDark
+                                        )
+                                    }
+                                    IconButton(onClick = { showSignOutConfirm = true }) {
+                                        Icon(
+                                            imageVector = Icons.Default.Logout,
+                                            contentDescription = "Sign Out",
+                                            tint = RoseAlert
+                                        )
+                                    }
                                 }
                             }
 
@@ -200,6 +213,33 @@ fun FamilyScreen(
                                         fontWeight = FontWeight.SemiBold,
                                         color = TextPrimaryDark
                                     )
+                                }
+                            }
+
+                            Spacer(modifier = Modifier.height(12.dp))
+
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.spacedBy(8.dp)
+                            ) {
+                                OutlinedButton(
+                                    onClick = { viewModel.dispatchEvent(FamilyEvent.OpenEditProfileDialog) },
+                                    shape = RoundedCornerShape(10.dp),
+                                    modifier = Modifier.weight(1f)
+                                ) {
+                                    Icon(Icons.Default.Edit, contentDescription = null, modifier = Modifier.size(14.dp))
+                                    Spacer(modifier = Modifier.width(6.dp))
+                                    Text("Edit Profile", fontSize = 12.sp)
+                                }
+                                OutlinedButton(
+                                    onClick = { showSignOutConfirm = true },
+                                    shape = RoundedCornerShape(10.dp),
+                                    colors = ButtonDefaults.outlinedButtonColors(contentColor = RoseAlert),
+                                    modifier = Modifier.weight(1f)
+                                ) {
+                                    Icon(Icons.Default.Logout, contentDescription = null, modifier = Modifier.size(14.dp), tint = RoseAlert)
+                                    Spacer(modifier = Modifier.width(6.dp))
+                                    Text("Sign Out", fontSize = 12.sp, color = RoseAlert, fontWeight = FontWeight.Bold)
                                 }
                             }
                         }
@@ -489,6 +529,45 @@ fun FamilyScreen(
             },
             dismissButton = {
                 TextButton(onClick = { viewModel.dispatchEvent(FamilyEvent.CloseEditProfileDialog) }) {
+                    Text("Cancel", color = TextMutedDark)
+                }
+            }
+        )
+    }
+
+    if (showSignOutConfirm) {
+        AlertDialog(
+            onDismissRequest = { showSignOutConfirm = false },
+            containerColor = CardBackgroundDark,
+            title = {
+                Text(
+                    text = "Sign Out of Account?",
+                    fontSize = 18.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = TextPrimaryDark
+                )
+            },
+            text = {
+                Text(
+                    text = "Are you sure you want to sign out from this device? You can log back in at any time.",
+                    fontSize = 14.sp,
+                    color = TextMutedDark
+                )
+            },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        showSignOutConfirm = false
+                        viewModel.dispatchEvent(FamilyEvent.SignOut)
+                    },
+                    colors = ButtonDefaults.buttonColors(containerColor = RoseAlert),
+                    shape = RoundedCornerShape(8.dp)
+                ) {
+                    Text("Sign Out", color = TextPrimaryDark, fontWeight = FontWeight.Bold)
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showSignOutConfirm = false }) {
                     Text("Cancel", color = TextMutedDark)
                 }
             }
