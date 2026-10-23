@@ -28,8 +28,8 @@ class AddExpenseUseCaseTest {
         val expense = Expense(
             title = "AWS Infrastructure",
             amount = 499.0,
-            category = Category.SOFTWARE_AND_TECH,
-            currency = Currency.USD
+            category = Category.INTERNET_AND_MOBILE,
+            currency = Currency.INR
         )
         coEvery { repository.addExpense(expense) } returns Result.success(Unit)
 
@@ -58,7 +58,7 @@ class AddExpenseUseCaseTest {
         val expense = Expense(
             title = "Lunch",
             amount = 0.0,
-            category = Category.FOOD_AND_DINING
+            category = Category.DINING_AND_OUTING
         )
 
         val result = useCase(expense)

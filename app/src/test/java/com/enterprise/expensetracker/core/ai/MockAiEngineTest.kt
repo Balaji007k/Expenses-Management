@@ -23,25 +23,25 @@ class MockAiEngineTest {
     @Test
     fun `generateMonthlyForecast produces valid predictive figures`() = runTest {
         val expenses = listOf(
-            Expense(title = "Cloud Server", amount = 200.0, category = Category.SOFTWARE_AND_TECH, currency = Currency.USD),
-            Expense(title = "Client Flight", amount = 450.0, category = Category.TRAVEL_AND_TRANSPORT, currency = Currency.USD)
+            Expense(title = "Groceries", amount = 2000.0, category = Category.GROCERIES_AND_FOOD, currency = Currency.INR),
+            Expense(title = "Fuel", amount = 4500.0, category = Category.TRAVEL_AND_FUEL, currency = Currency.INR)
         )
 
-        val result = aiEngine.generateMonthlyForecast(expenses, monthlyBudget = 2000.0)
+        val result = aiEngine.generateMonthlyForecast(expenses, monthlyBudget = 20000.0)
 
         assertTrue(result.isSuccess)
         val forecast = result.getOrNull()
         assertNotNull(forecast)
-        assertEquals(650.0, forecast!!.currentMonthActual, 0.01)
-        assertTrue(forecast.predictedEndOfMonthSpend > 650.0)
+        assertEquals(6500.0, forecast!!.currentMonthActual, 0.01)
+        assertTrue(forecast.predictedEndOfMonthSpend > 6500.0)
         assertTrue(forecast.confidenceRate > 0.9f)
     }
 
     @Test
     fun `detectAnomalies flags high value transactions`() = runTest {
         val expenses = listOf(
-            Expense(title = "Office Supplies", amount = 25.0, category = Category.OFFICE_AND_EQUIPMENT),
-            Expense(title = "Executive Retreat", amount = 850.0, category = Category.TRAVEL_AND_TRANSPORT)
+            Expense(title = "Daily Milk", amount = 60.0, category = Category.GROCERIES_AND_FOOD),
+            Expense(title = "Home Painting", amount = 15000.0, category = Category.HOME_MAINTENANCE)
         )
 
         val result = aiEngine.detectAnomalies(expenses)
@@ -49,6 +49,6 @@ class MockAiEngineTest {
         assertTrue(result.isSuccess)
         val insights = result.getOrNull()
         assertNotNull(insights)
-        assertTrue(insights!!.any { it.title.contains("Unusual") || it.title.contains("Peak") })
+        assertTrue(insights!!.any { it.type == com.enterprise.expensetracker.core.model.ai.InsightType.ANOMALY_DETECTED })
     }
 }

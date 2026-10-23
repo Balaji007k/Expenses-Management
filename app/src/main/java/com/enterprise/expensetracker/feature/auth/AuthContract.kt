@@ -25,6 +25,8 @@ sealed interface AuthEvent {
     data object ToggleMode : AuthEvent
     data object SubmitAuth : AuthEvent
     data object GoogleSignInClicked : AuthEvent
+    data class GoogleSignInSuccess(val email: String, val displayName: String, val photoUrl: String? = null) : AuthEvent
+    data class GoogleSignInFailure(val errorMessage: String) : AuthEvent
     data object DismissError : AuthEvent
 }
 

@@ -238,15 +238,19 @@ class AuthRepositoryImpl @Inject constructor(
     override suspend fun loginWithGoogle(displayName: String?, email: String?): Result<UserProfile> {
         return withContext(dispatchers.io) {
             try {
-                val resolvedEmail = email?.trim() ?: "google.user@household.in"
-                val resolvedName = displayName?.trim() ?: resolvedEmail.substringBefore("@").replace(".", " ").capitalizeWords()
+                val cleanEmail = email?.trim()
+                if (cleanEmail.isNullOrBlank()) {
+                    return@withContext Result.failure(IllegalArgumentException("Google account email is required"))
+                }
+                val resolvedName = displayName?.trim().takeIf { !it.isNullOrBlank() }
+                    ?: cleanEmail.substringBefore("@").replace(".", " ").capitalizeWords()
 
-                val existing = mongoDbManager.userDao.getUserByEmail(resolvedEmail)
+                val existing = mongoDbManager.userDao.getUserByEmail(cleanEmail)
                 val entity = existing ?: run {
                     val newEntity = UserMongoEntity(
                         _id = UUID.randomUUID().toString(),
                         name = resolvedName,
-                        email = resolvedEmail,
+                        email = cleanEmail,
                         role = UserRole.HEAD_OF_HOUSEHOLD.name,
                         relationship = FamilyRelationship.HEAD.name,
                         familyId = _currentUser.value?.familyId ?: "family_google_${UUID.randomUUID().toString().take(6)}",

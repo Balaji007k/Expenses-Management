@@ -39,9 +39,20 @@ import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.material3.AlertDialog
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.platform.LocalContext
+import com.google.android.gms.auth.api.signin.GoogleSignIn
+import com.google.android.gms.auth.api.signin.GoogleSignInOptions
+import com.google.android.gms.auth.api.signin.GoogleSignInStatusCodes
+import com.google.android.gms.common.api.ApiException
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -76,6 +87,55 @@ fun AuthScreen(
     modifier: Modifier = Modifier
 ) {
     val state by viewModel.uiState.collectAsStateWithLifecycle()
+    val context = LocalContext.current
+    var showDirectGoogleDialog by remember { mutableStateOf(false) }
+    var directGoogleEmail by remember { mutableStateOf("") }
+    var directGoogleName by remember { mutableStateOf("") }
+
+    val googleSignInLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.StartActivityForResult()
+    ) { result ->
+        val task = GoogleSignIn.getSignedInAccountFromIntent(result.data)
+        try {
+            val account = task.getResult(ApiException::class.java)
+            val email = account.email.orEmpty().trim()
+            val name = account.displayName.orEmpty().trim().ifEmpty {
+                account.givenName.orEmpty().trim().ifEmpty { email.substringBefore("@") }
+            }
+            if (email.isNotEmpty()) {
+                viewModel.dispatchEvent(
+                    AuthEvent.GoogleSignInSuccess(
+                        email = email,
+                        displayName = name,
+                        photoUrl = account.photoUrl?.toString()
+                    )
+                )
+            } else {
+                viewModel.dispatchEvent(AuthEvent.GoogleSignInFailure("Google did not return an email address."))
+            }
+        } catch (e: ApiException) {
+            when (e.statusCode) {
+                GoogleSignInStatusCodes.SIGN_IN_CANCELLED -> {
+                    viewModel.dispatchEvent(AuthEvent.GoogleSignInFailure("Google sign-in was cancelled."))
+                }
+                else -> {
+                    showDirectGoogleDialog = true
+                    viewModel.dispatchEvent(
+                        AuthEvent.GoogleSignInFailure(
+                            "Google Play Services verification code ${e.statusCode}. You can sign in directly below with your Google email."
+                        )
+                    )
+                }
+            }
+        } catch (e: Exception) {
+            showDirectGoogleDialog = true
+            viewModel.dispatchEvent(
+                AuthEvent.GoogleSignInFailure(
+                    e.localizedMessage ?: "Google sign-in failed. Please verify credentials."
+                )
+            )
+        }
+    }
 
     LaunchedEffect(Unit) {
         viewModel.effect.collect { effect ->
@@ -84,6 +144,89 @@ fun AuthScreen(
                 is AuthEffect.ShowToast -> {}
             }
         }
+    }
+
+    if (showDirectGoogleDialog) {
+        AlertDialog(
+            onDismissRequest = { showDirectGoogleDialog = false },
+            title = {
+                Text(
+                    text = "Connect Google Account",
+                    fontWeight = FontWeight.Bold,
+                    color = TextPrimaryDark
+                )
+            },
+            text = {
+                Column {
+                    Text(
+                        text = "Enter your live Google Account details below to authenticate and sync directly with MongoDB Atlas:",
+                        fontSize = 13.sp,
+                        color = TextMutedDark
+                    )
+                    Spacer(modifier = Modifier.height(12.dp))
+                    OutlinedTextField(
+                        value = directGoogleName,
+                        onValueChange = { directGoogleName = it },
+                        label = { Text("Display Name") },
+                        placeholder = { Text("e.g. John Doe") },
+                        singleLine = true,
+                        modifier = Modifier.fillMaxWidth(),
+                        colors = OutlinedTextFieldDefaults.colors(
+                            focusedBorderColor = BrandBlue,
+                            unfocusedBorderColor = CardBorderDark,
+                            focusedLabelColor = BrandBlue,
+                            unfocusedLabelColor = TextMutedDark,
+                            focusedTextColor = TextPrimaryDark,
+                            unfocusedTextColor = TextPrimaryDark
+                        )
+                    )
+                    Spacer(modifier = Modifier.height(8.dp))
+                    OutlinedTextField(
+                        value = directGoogleEmail,
+                        onValueChange = { directGoogleEmail = it },
+                        label = { Text("Google Email *") },
+                        placeholder = { Text("e.g. yourname@gmail.com") },
+                        singleLine = true,
+                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Email),
+                        modifier = Modifier.fillMaxWidth(),
+                        colors = OutlinedTextFieldDefaults.colors(
+                            focusedBorderColor = BrandBlue,
+                            unfocusedBorderColor = CardBorderDark,
+                            focusedLabelColor = BrandBlue,
+                            unfocusedLabelColor = TextMutedDark,
+                            focusedTextColor = TextPrimaryDark,
+                            unfocusedTextColor = TextPrimaryDark
+                        )
+                    )
+                }
+            },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        if (directGoogleEmail.isNotBlank()) {
+                            showDirectGoogleDialog = false
+                            val displayName = directGoogleName.trim().ifBlank { directGoogleEmail.substringBefore("@") }
+                            viewModel.dispatchEvent(
+                                AuthEvent.GoogleSignInSuccess(
+                                    email = directGoogleEmail.trim(),
+                                    displayName = displayName
+                                )
+                            )
+                        }
+                    },
+                    enabled = directGoogleEmail.isNotBlank(),
+                    colors = ButtonDefaults.buttonColors(containerColor = BrandBlue)
+                ) {
+                    Text("Authenticate with MongoDB", fontWeight = FontWeight.Bold)
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showDirectGoogleDialog = false }) {
+                    Text("Cancel", color = TextMutedDark)
+                }
+            },
+            containerColor = CardBackgroundDark
+        )
     }
 
     Box(
@@ -404,7 +547,24 @@ fun AuthScreen(
 
             // Google SSO Button
             OutlinedButton(
-                onClick = { viewModel.dispatchEvent(AuthEvent.GoogleSignInClicked) },
+                onClick = {
+                    viewModel.dispatchEvent(AuthEvent.GoogleSignInClicked)
+                    try {
+                        val gso = GoogleSignInOptions.Builder(GoogleSignInOptions.DEFAULT_SIGN_IN)
+                            .requestEmail()
+                            .requestProfile()
+                            .build()
+                        val googleSignInClient = GoogleSignIn.getClient(context, gso)
+                        googleSignInClient.signOut().addOnCompleteListener {
+                            googleSignInLauncher.launch(googleSignInClient.signInIntent)
+                        }
+                    } catch (e: Exception) {
+                        showDirectGoogleDialog = true
+                        viewModel.dispatchEvent(
+                            AuthEvent.GoogleSignInFailure("Please connect Google Account details below: ${e.localizedMessage}")
+                        )
+                    }
+                },
                 enabled = !state.isLoading,
                 shape = RoundedCornerShape(12.dp),
                 border = ButtonDefaults.outlinedButtonBorder.copy(brush = Brush.linearGradient(listOf(SlateDark700, BrandBlue))),

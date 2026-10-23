@@ -32,7 +32,9 @@ class AuthViewModel @Inject constructor(
             }
             is AuthEvent.DismissError -> setState { copy(errorMessage = null) }
             is AuthEvent.SubmitAuth -> handleSubmit()
-            is AuthEvent.GoogleSignInClicked -> handleGoogleSignIn()
+            is AuthEvent.GoogleSignInClicked -> setState { copy(isLoading = true, errorMessage = null) }
+            is AuthEvent.GoogleSignInSuccess -> handleGoogleSignInSuccess(event.email, event.displayName)
+            is AuthEvent.GoogleSignInFailure -> setState { copy(isLoading = false, errorMessage = event.errorMessage) }
         }
     }
 
@@ -72,16 +74,16 @@ class AuthViewModel @Inject constructor(
         }
     }
 
-    private fun handleGoogleSignIn() {
+    private fun handleGoogleSignInSuccess(email: String, displayName: String) {
         setState { copy(isLoading = true, errorMessage = null) }
         viewModelScope.launch {
             val result = googleLoginUseCase(
-                displayName = if (currentState.name.isNotBlank()) currentState.name else "Household User",
-                email = if (currentState.email.isNotBlank()) currentState.email else "google.user@household.in"
+                displayName = displayName.ifBlank { email.substringBefore("@") },
+                email = email
             )
             setState { copy(isLoading = false) }
             if (result.isSuccess) {
-                sendEffect(AuthEffect.ShowToast("Google Sign-In successful!"))
+                sendEffect(AuthEffect.ShowToast("Welcome, ${result.getOrNull()?.name}! Signed in with Google."))
                 sendEffect(AuthEffect.NavigateToHome)
             } else {
                 setState { copy(errorMessage = result.exceptionOrNull()?.message ?: "Google Sign-In failed") }
