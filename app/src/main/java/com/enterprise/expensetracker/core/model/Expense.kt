@@ -20,5 +20,9 @@ data class Expense(
     val isRecurring: Boolean = false,
     val isAiPredicted: Boolean = false,
     val syncStatus: SyncStatus = SyncStatus.PENDING_SYNC,
-    val updatedAt: Long = System.currentTimeMillis()
+    val updatedAt: Long = System.currentTimeMillis(),
+    val createdByUserId: String = "user_default",
+    val createdByUserName: String = "Head of Household",
+    val createdByRelationship: String = "Head",
+    val familyId: String = "family_primary"
 )

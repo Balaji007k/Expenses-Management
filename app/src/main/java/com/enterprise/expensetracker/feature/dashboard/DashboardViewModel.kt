@@ -7,9 +7,11 @@ import com.enterprise.expensetracker.core.model.Category
 import com.enterprise.expensetracker.core.model.Currency
 import com.enterprise.expensetracker.core.model.Expense
 import com.enterprise.expensetracker.core.model.SyncStatus
+import com.enterprise.expensetracker.core.model.UserRole
 import com.enterprise.expensetracker.domain.usecase.AddExpenseUseCase
 import com.enterprise.expensetracker.domain.usecase.DeleteExpenseUseCase
 import com.enterprise.expensetracker.domain.usecase.GetAiInsightsUseCase
+import com.enterprise.expensetracker.domain.usecase.GetCurrentUserUseCase
 import com.enterprise.expensetracker.domain.usecase.GetDynamicConfigUseCase
 import com.enterprise.expensetracker.domain.usecase.GetExpensesUseCase
 import com.enterprise.expensetracker.domain.usecase.SyncExpensesUseCase
@@ -25,7 +27,8 @@ class DashboardViewModel @Inject constructor(
     private val deleteExpenseUseCase: DeleteExpenseUseCase,
     private val getAiInsightsUseCase: GetAiInsightsUseCase,
     private val getDynamicConfigUseCase: GetDynamicConfigUseCase,
-    private val syncExpensesUseCase: SyncExpensesUseCase
+    private val syncExpensesUseCase: SyncExpensesUseCase,
+    private val getCurrentUserUseCase: GetCurrentUserUseCase
 ) : BaseViewModel<DashboardState, DashboardEvent, DashboardEffect>(DashboardState()) {
 
     private var demoIndex = 0
@@ -40,20 +43,30 @@ class DashboardViewModel @Inject constructor(
         viewModelScope.launch {
             combine(
                 getExpensesUseCase(),
-                getDynamicConfigUseCase.observeConfig()
-            ) { expenses, config ->
-                Pair(expenses, config)
-            }.collect { (expenses, config) ->
-                val total = expenses.sumOf { it.amount }
+                getDynamicConfigUseCase.observeConfig(),
+                getCurrentUserUseCase()
+            ) { expenses, config, currentUser ->
+                Triple(expenses, config, currentUser)
+            }.collect { (expenses, config, currentUser) ->
+                val visibleExpenses = if (currentUser?.role == UserRole.FAMILY_MEMBER) {
+                    expenses.filter {
+                        it.createdByUserId == currentUser.id || it.createdByUserName.equals(currentUser.name, ignoreCase = true)
+                    }
+                } else {
+                    expenses
+                }
+
+                val total = visibleExpenses.sumOf { it.amount }
                 val currency = Currency.fromCode(config.defaultCurrencyCode)
                 val predicted = if (total > 0) total * 1.25 else 0.0
 
                 setState {
                     copy(
                         isLoading = false,
+                        currentUser = currentUser,
                         totalSpendThisMonth = total,
                         predictedEndOfMonthSpend = predicted,
-                        recentExpenses = expenses.take(5),
+                        recentExpenses = visibleExpenses.take(5),
                         activeAiEngine = config.activeAiProvider,
                         currencySymbol = currency.symbol
                     )
@@ -134,10 +147,17 @@ class DashboardViewModel @Inject constructor(
                         )
                     )
 
-                    val demo = homeDemoList[demoIndex % homeDemoList.size]
+                    val user = currentState.currentUser
+                    val baseDemo = homeDemoList[demoIndex % homeDemoList.size]
+                    val demo = baseDemo.copy(
+                        createdByUserId = user?.id ?: "user_default",
+                        createdByUserName = user?.name ?: "Family Head",
+                        createdByRelationship = user?.relationship?.displayName ?: "Head",
+                        familyId = user?.familyId ?: "family_primary"
+                    )
                     demoIndex++
                     addExpenseUseCase(demo)
-                    sendEffect(DashboardEffect.ShowToast("Added: ${demo.title}"))
+                    sendEffect(DashboardEffect.ShowToast("Added: ${demo.title} (by ${demo.createdByUserName})"))
                 }
             }
             is DashboardEvent.DeleteExpense -> {

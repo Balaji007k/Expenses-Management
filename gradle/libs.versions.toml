@@ -62,10 +62,11 @@ realm-kotlin-sync = { group = "io.realm.kotlin", name = "library-sync", version.
 mongodb-driver-sync = { group = "org.mongodb", name = "mongodb-driver-sync", version.ref = "mongodbDriver" }
 mongodb-bson = { group = "org.mongodb", name = "bson", version.ref = "mongodbDriver" }
 
-# Firebase (Remote Config, Analytics, Core)
+# Firebase (Remote Config, Analytics, Core, Auth)
 firebase-bom = { group = "com.google.firebase", name = "firebase-bom", version.ref = "firebaseBom" }
 firebase-config-ktx = { group = "com.google.firebase", name = "firebase-config-ktx" }
 firebase-analytics-ktx = { group = "com.google.firebase", name = "firebase-analytics-ktx" }
+firebase-auth-ktx = { group = "com.google.firebase", name = "firebase-auth-ktx" }
 
 # AI Integration (Google Gemini Generative AI)
 google-gemini-ai = { group = "com.google.ai.client.generativeai", name = "generativeai", version.ref = "geminiAi" }

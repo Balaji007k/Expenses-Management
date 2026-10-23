@@ -3,5 +3,6 @@
     <string name="nav_dashboard">Dashboard</string>
     <string name="nav_expenses">Expenses</string>
     <string name="nav_insights">AI Insights</string>
+    <string name="nav_family">Family</string>
     <string name="nav_settings">Settings</string>
 </resources>

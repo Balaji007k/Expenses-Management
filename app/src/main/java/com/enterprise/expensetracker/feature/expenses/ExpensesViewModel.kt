@@ -6,10 +6,14 @@ import com.enterprise.expensetracker.core.model.Category
 import com.enterprise.expensetracker.core.model.Currency
 import com.enterprise.expensetracker.core.model.Expense
 import com.enterprise.expensetracker.core.model.SyncStatus
+import com.enterprise.expensetracker.core.model.UserProfile
+import com.enterprise.expensetracker.core.model.UserRole
 import com.enterprise.expensetracker.domain.usecase.AddExpenseUseCase
 import com.enterprise.expensetracker.domain.usecase.DeleteExpenseUseCase
+import com.enterprise.expensetracker.domain.usecase.GetCurrentUserUseCase
 import com.enterprise.expensetracker.domain.usecase.GetDynamicConfigUseCase
 import com.enterprise.expensetracker.domain.usecase.GetExpensesUseCase
+import com.enterprise.expensetracker.domain.usecase.GetFamilyMembersUseCase
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.launch
@@ -20,7 +24,9 @@ class ExpensesViewModel @Inject constructor(
     private val getExpensesUseCase: GetExpensesUseCase,
     private val addExpenseUseCase: AddExpenseUseCase,
     private val deleteExpenseUseCase: DeleteExpenseUseCase,
-    private val getDynamicConfigUseCase: GetDynamicConfigUseCase
+    private val getDynamicConfigUseCase: GetDynamicConfigUseCase,
+    private val getCurrentUserUseCase: GetCurrentUserUseCase,
+    private val getFamilyMembersUseCase: GetFamilyMembersUseCase
 ) : BaseViewModel<ExpensesState, ExpensesEvent, ExpensesEffect>(ExpensesState()) {
 
     init {
@@ -33,16 +39,38 @@ class ExpensesViewModel @Inject constructor(
         viewModelScope.launch {
             combine(
                 getExpensesUseCase(),
-                getDynamicConfigUseCase.observeConfig()
-            ) { expenses, config ->
-                Pair(expenses, config)
-            }.collect { (expenses, config) ->
-                val currency = Currency.fromCode(config.defaultCurrencyCode)
+                getDynamicConfigUseCase.observeConfig(),
+                getCurrentUserUseCase(),
+                getFamilyMembersUseCase()
+            ) { expenses, config, currentUser, familyMembers ->
+                StateBundle(expenses, config.defaultCurrencyCode, currentUser, familyMembers)
+            }.collect { bundle ->
+                val currency = Currency.fromCode(bundle.currencyCode)
+                val user = bundle.currentUser
+
+                // Filter base expenses according to user role:
+                // Family Member can ONLY see their own expenses
+                // Head of Household can see all family expenses
+                val visibleExpenses = if (user?.role == UserRole.FAMILY_MEMBER) {
+                    bundle.expenses.filter {
+                        it.createdByUserId == user.id || it.createdByUserName.equals(user.name, ignoreCase = true)
+                    }
+                } else {
+                    bundle.expenses
+                }
+
                 setState {
                     copy(
                         isLoading = false,
-                        expenses = expenses,
-                        filteredExpenses = filterList(expenses, selectedCategory, searchQuery),
+                        currentUser = user,
+                        familyMembers = bundle.familyMembers,
+                        expenses = visibleExpenses,
+                        filteredExpenses = filterList(
+                            list = visibleExpenses,
+                            category = selectedCategory,
+                            memberId = selectedMemberId,
+                            query = searchQuery
+                        ),
                         currencySymbol = currency.symbol
                     )
                 }
@@ -56,7 +84,7 @@ class ExpensesViewModel @Inject constructor(
                 setState {
                     copy(
                         searchQuery = event.query,
-                        filteredExpenses = filterList(expenses, selectedCategory, event.query)
+                        filteredExpenses = filterList(expenses, selectedCategory, selectedMemberId, event.query)
                     )
                 }
             }
@@ -64,7 +92,15 @@ class ExpensesViewModel @Inject constructor(
                 setState {
                     copy(
                         selectedCategory = event.category,
-                        filteredExpenses = filterList(expenses, event.category, searchQuery)
+                        filteredExpenses = filterList(expenses, event.category, selectedMemberId, searchQuery)
+                    )
+                }
+            }
+            is ExpensesEvent.MemberFilterSelected -> {
+                setState {
+                    copy(
+                        selectedMemberId = event.memberId,
+                        filteredExpenses = filterList(expenses, selectedCategory, event.memberId, searchQuery)
                     )
                 }
             }
@@ -73,20 +109,37 @@ class ExpensesViewModel @Inject constructor(
             }
             is ExpensesEvent.AddExpenseSubmitted -> {
                 viewModelScope.launch {
+                    val user = currentState.currentUser
                     val newExpense = Expense(
                         title = event.title,
                         amount = event.amount,
                         category = event.category,
+                        currency = Currency.INR,
                         notes = event.notes,
-                        syncStatus = SyncStatus.PENDING_SYNC
+                        syncStatus = SyncStatus.PENDING_SYNC,
+                        createdByUserId = user?.id ?: "user_default",
+                        createdByUserName = user?.name ?: "Family Head",
+                        createdByRelationship = user?.relationship?.displayName ?: "Head",
+                        familyId = user?.familyId ?: "family_primary"
                     )
                     addExpenseUseCase(newExpense)
                     setState { copy(isAddDialogOpen = false) }
-                    sendEffect(ExpensesEffect.ShowMessage("Expense added successfully"))
+                    sendEffect(ExpensesEffect.ShowMessage("Expense added by ${newExpense.createdByUserName}"))
                 }
             }
             is ExpensesEvent.DeleteExpense -> {
                 viewModelScope.launch {
+                    val user = currentState.currentUser
+                    val expenseToDelete = currentState.expenses.firstOrNull { it.id == event.id }
+
+                    // Member can only delete their own expenses; Head can delete any
+                    if (user?.role == UserRole.FAMILY_MEMBER) {
+                        if (expenseToDelete != null && expenseToDelete.createdByUserId != user.id && !expenseToDelete.createdByUserName.equals(user.name, ignoreCase = true)) {
+                            sendEffect(ExpensesEffect.ShowMessage("Permission denied: You can only delete your own expenses"))
+                            return@launch
+                        }
+                    }
+
                     deleteExpenseUseCase(event.id)
                     sendEffect(ExpensesEffect.ShowMessage("Expense deleted"))
                 }
@@ -97,14 +150,24 @@ class ExpensesViewModel @Inject constructor(
     private fun filterList(
         list: List<Expense>,
         category: Category?,
+        memberId: String?,
         query: String
     ): List<Expense> {
         return list.filter { expense ->
             val matchesCategory = category == null || expense.category == category
+            val matchesMember = memberId == null || expense.createdByUserId == memberId
             val matchesQuery = query.isBlank() ||
                 expense.title.contains(query, ignoreCase = true) ||
-                (expense.notes?.contains(query, ignoreCase = true) == true)
-            matchesCategory && matchesQuery
+                (expense.notes?.contains(query, ignoreCase = true) == true) ||
+                expense.createdByUserName.contains(query, ignoreCase = true)
+            matchesCategory && matchesMember && matchesQuery
         }
     }
+
+    private data class StateBundle(
+        val expenses: List<Expense>,
+        val currencyCode: String,
+        val currentUser: UserProfile?,
+        val familyMembers: List<UserProfile>
+    )
 }

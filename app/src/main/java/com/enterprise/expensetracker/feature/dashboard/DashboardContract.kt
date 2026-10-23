@@ -1,10 +1,12 @@
 package com.enterprise.expensetracker.feature.dashboard
 
 import com.enterprise.expensetracker.core.model.Expense
+import com.enterprise.expensetracker.core.model.UserProfile
 import com.enterprise.expensetracker.core.model.ai.AiInsight
 
 data class DashboardState(
     val isLoading: Boolean = false,
+    val currentUser: UserProfile? = null,
     val totalSpendThisMonth: Double = 0.0,
     val monthlyBudget: Double = 45000.0,
     val predictedEndOfMonthSpend: Double = 0.0,

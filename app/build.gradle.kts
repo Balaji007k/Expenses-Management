@@ -109,10 +109,11 @@ dependencies {
     implementation(libs.mongodb.driver.sync)
     implementation(libs.mongodb.bson)
 
-    // Firebase (Remote Config, Analytics)
+    // Firebase (Remote Config, Analytics, Auth)
     implementation(platform(libs.firebase.bom))
     implementation(libs.firebase.config.ktx)
     implementation(libs.firebase.analytics.ktx)
+    implementation(libs.firebase.auth.ktx)
 
     // Artificial Intelligence - Google Gemini
     implementation(libs.google.gemini.ai)

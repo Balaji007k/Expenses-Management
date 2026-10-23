@@ -24,10 +24,14 @@ data class ExpenseMongoEntity(
     var isRecurring: Boolean = false,
     var isAiPredicted: Boolean = false,
     var syncState: String = "SYNCED",
-    var updatedAt: Long = 0L
+    var updatedAt: Long = 0L,
+    var createdByUserId: String = "user_default",
+    var createdByUserName: String = "Head of Household",
+    var createdByRelationship: String = "Head",
+    var familyId: String = "family_primary"
 )
 
-fun Expense.toMongoEntity(ownerId: String = "enterprise_user"): ExpenseMongoEntity {
+fun Expense.toMongoEntity(ownerId: String = "household_user"): ExpenseMongoEntity {
     return ExpenseMongoEntity(
         _id = id,
         ownerId = ownerId,
@@ -41,7 +45,11 @@ fun Expense.toMongoEntity(ownerId: String = "enterprise_user"): ExpenseMongoEnti
         isRecurring = isRecurring,
         isAiPredicted = isAiPredicted,
         syncState = syncStatus.name,
-        updatedAt = updatedAt
+        updatedAt = updatedAt,
+        createdByUserId = createdByUserId,
+        createdByUserName = createdByUserName,
+        createdByRelationship = createdByRelationship,
+        familyId = familyId
     )
 }
 
@@ -58,6 +66,10 @@ fun ExpenseMongoEntity.toDomain(): Expense {
         isRecurring = isRecurring,
         isAiPredicted = isAiPredicted,
         syncStatus = runCatching { SyncStatus.valueOf(syncState) }.getOrDefault(SyncStatus.SYNCED),
-        updatedAt = updatedAt
+        updatedAt = updatedAt,
+        createdByUserId = createdByUserId,
+        createdByUserName = createdByUserName,
+        createdByRelationship = createdByRelationship,
+        familyId = familyId
     )
 }

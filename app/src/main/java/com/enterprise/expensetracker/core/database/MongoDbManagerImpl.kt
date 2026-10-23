@@ -321,7 +321,11 @@ class MongoDbManagerImpl @Inject constructor(
                             isRecurring = doc.getBoolean("isRecurring") ?: false,
                             isAiPredicted = doc.getBoolean("isAiPredicted") ?: false,
                             syncState = "SYNCED",
-                            updatedAt = (doc.get("updatedAt") as? Number)?.toLong() ?: System.currentTimeMillis()
+                            updatedAt = (doc.get("updatedAt") as? Number)?.toLong() ?: System.currentTimeMillis(),
+                            createdByUserId = doc.getString("createdByUserId") ?: "user_default",
+                            createdByUserName = doc.getString("createdByUserName") ?: "Head of Household",
+                            createdByRelationship = doc.getString("createdByRelationship") ?: "Head",
+                            familyId = doc.getString("familyId") ?: "family_primary"
                         )
                         localStore[id] = remoteEntity
                     }
@@ -353,6 +357,10 @@ class MongoDbManagerImpl @Inject constructor(
                     .append("isRecurring", entity.isRecurring)
                     .append("isAiPredicted", entity.isAiPredicted)
                     .append("updatedAt", entity.updatedAt)
+                    .append("createdByUserId", entity.createdByUserId)
+                    .append("createdByUserName", entity.createdByUserName)
+                    .append("createdByRelationship", entity.createdByRelationship)
+                    .append("familyId", entity.familyId)
 
                 collection.replaceOne(
                     Filters.eq("_id", entity._id),

@@ -37,6 +37,7 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.enterprise.expensetracker.core.designsystem.theme.BrandBlue
 import com.enterprise.expensetracker.core.designsystem.theme.CardBackgroundDark
 import com.enterprise.expensetracker.core.designsystem.theme.CardBorderDark
 import com.enterprise.expensetracker.core.designsystem.theme.EmeraldSuccess
@@ -116,6 +117,14 @@ fun ExpenseListItem(
                             text = " • $formattedDate",
                             fontSize = 12.sp,
                             color = TextMutedDark
+                        )
+                    }
+                    if (expense.createdByUserName.isNotBlank()) {
+                        Text(
+                            text = "by ${expense.createdByUserName} (${expense.createdByRelationship})",
+                            fontSize = 11.sp,
+                            color = BrandBlue,
+                            fontWeight = FontWeight.Medium
                         )
                     }
                 }

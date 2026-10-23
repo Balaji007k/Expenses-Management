@@ -1,6 +1,7 @@
 package com.enterprise.expensetracker.feature.expenses
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
@@ -30,6 +31,7 @@ import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.text.font.FontWeight
@@ -42,7 +44,9 @@ import com.enterprise.expensetracker.core.designsystem.components.ExpenseTopBar
 import com.enterprise.expensetracker.core.designsystem.theme.BrandBlue
 import com.enterprise.expensetracker.core.designsystem.theme.CardBackgroundDark
 import com.enterprise.expensetracker.core.designsystem.theme.CardBorderDark
+import com.enterprise.expensetracker.core.designsystem.theme.PurpleAi
 import com.enterprise.expensetracker.core.designsystem.theme.SlateDark700
+import com.enterprise.expensetracker.core.designsystem.theme.SlateDark800
 import com.enterprise.expensetracker.core.designsystem.theme.TextMutedDark
 import com.enterprise.expensetracker.core.designsystem.theme.TextPrimaryDark
 import com.enterprise.expensetracker.core.model.Category
@@ -74,13 +78,86 @@ fun ExpensesScreen(
                 .padding(padding)
         ) {
             ExpenseTopBar(
-                title = "Household Ledger",
-                subtitle = "Track daily family expenses & bills",
+                title = if (state.isHeadOfHousehold) "Household Ledger" else "My Personal Ledger",
+                subtitle = if (state.isHeadOfHousehold) "All family members' expenses • Full Access" else "Showing expenses recorded by ${state.currentUser?.name ?: "You"}",
                 aiProviderName = null
             )
 
+            // Family Member Personal Banner (for Member role)
+            if (!state.isHeadOfHousehold && state.currentUser != null) {
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 20.dp, vertical = 4.dp)
+                        .clip(RoundedCornerShape(10.dp))
+                        .background(BrandBlue.copy(alpha = 0.15f))
+                        .border(1.dp, BrandBlue.copy(alpha = 0.3f), RoundedCornerShape(10.dp))
+                        .padding(horizontal = 12.dp, vertical = 8.dp)
+                ) {
+                    Text(
+                        text = "👤 Member View: You can add and manage your own household expenses.",
+                        fontSize = 11.sp,
+                        color = TextPrimaryDark,
+                        fontWeight = FontWeight.Medium
+                    )
+                }
+            }
+
+            // Head of Household: Filter by Family Member
+            if (state.isHeadOfHousehold && state.familyMembers.isNotEmpty()) {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .horizontalScroll(rememberScrollState())
+                        .padding(horizontal = 20.dp, vertical = 4.dp),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text(
+                        text = "Filter:",
+                        fontSize = 11.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = TextMutedDark
+                    )
+
+                    val isAllSelected = state.selectedMemberId == null
+                    Box(
+                        modifier = Modifier
+                            .clip(RoundedCornerShape(16.dp))
+                            .background(if (isAllSelected) PurpleAi else SlateDark800)
+                            .clickable { viewModel.dispatchEvent(ExpensesEvent.MemberFilterSelected(null)) }
+                            .padding(horizontal = 12.dp, vertical = 5.dp)
+                    ) {
+                        Text(
+                            text = "👨‍👩‍👧‍👦 All Family",
+                            fontSize = 11.sp,
+                            fontWeight = if (isAllSelected) FontWeight.Bold else FontWeight.Normal,
+                            color = TextPrimaryDark
+                        )
+                    }
+
+                    state.familyMembers.forEach { member ->
+                        val isSelected = state.selectedMemberId == member.id
+                        Box(
+                            modifier = Modifier
+                                .clip(RoundedCornerShape(16.dp))
+                                .background(if (isSelected) PurpleAi else SlateDark800)
+                                .clickable { viewModel.dispatchEvent(ExpensesEvent.MemberFilterSelected(member.id)) }
+                                .padding(horizontal = 12.dp, vertical = 5.dp)
+                        ) {
+                            Text(
+                                text = "${member.name} (${member.relationship.displayName})",
+                                fontSize = 11.sp,
+                                fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal,
+                                color = TextPrimaryDark
+                            )
+                        }
+                    }
+                }
+            }
+
             // Search Bar
-            Box(modifier = Modifier.padding(horizontal = 20.dp, vertical = 6.dp)) {
+            Box(modifier = Modifier.padding(horizontal = 20.dp, vertical = 4.dp)) {
                 OutlinedTextField(
                     value = state.searchQuery,
                     onValueChange = { viewModel.dispatchEvent(ExpensesEvent.SearchQueryChanged(it)) },
@@ -107,7 +184,7 @@ fun ExpensesScreen(
                 modifier = Modifier
                     .fillMaxWidth()
                     .horizontalScroll(rememberScrollState())
-                    .padding(horizontal = 20.dp, vertical = 8.dp),
+                    .padding(horizontal = 20.dp, vertical = 6.dp),
                 horizontalArrangement = Arrangement.spacedBy(8.dp)
             ) {
                 // "All" filter chip

@@ -60,8 +60,8 @@ fun DashboardScreen(
             .background(MaterialTheme.colorScheme.background)
     ) {
         ExpenseTopBar(
-            title = "Home Expenses",
-            subtitle = "Family & Household Budget",
+            title = if (state.currentUser != null) "Hi, ${state.currentUser?.name} 👋" else "Home Expenses",
+            subtitle = if (state.currentUser?.isHeadOfHousehold == true) "👑 Head of Household • Family Ledger" else "👤 Family Member • Personal Ledger",
             aiProviderName = "Smart Advisor"
         )
 
