@@ -335,8 +335,8 @@ class MongoDbManagerImpl @Inject constructor(
 
                 Result.success(Unit)
             } catch (t: Throwable) {
-                // If offline or SSL handshake fails, maintain local state smoothly without crashing
-                _connectionState.value = MongoConnectionState.CONNECTED
+                android.util.Log.e("MongoDbManager", "connectWithUri error: ${t.message}", t)
+                _connectionState.value = MongoConnectionState.ERROR
                 Result.failure(t)
             }
         }
