@@ -32,6 +32,7 @@ import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.TimeUnit
 import javax.inject.Inject
 import javax.inject.Singleton
+import javax.net.ssl.SSLContext
 
 /**
  * Enterprise Production MongoDB Manager Implementation.
@@ -80,7 +81,7 @@ class MongoDbManagerImpl @Inject constructor(
                     }
                 }
             } catch (t: Throwable) {
-                _connectionState.value = MongoConnectionState.CONNECTED
+                _connectionState.value = MongoConnectionState.ERROR
             }
         }
     }
@@ -104,25 +105,42 @@ class MongoDbManagerImpl @Inject constructor(
 
         override suspend fun upsertExpense(entity: ExpenseMongoEntity) {
             withContext(dispatchers.io) {
-                localStore[entity._id] = entity
+                val col = ensureExpensesCollection()
+                val doc = expenseEntityToDocument(entity)
+                col.replaceOne(
+                    Filters.eq("_id", entity._id),
+                    doc,
+                    ReplaceOptions().upsert(true)
+                )
+                val synced = entity.copy(syncState = "SYNCED")
+                localStore[entity._id] = synced
                 publishUpdate()
-                // Sync to MongoDB Atlas asynchronously if connected
-                syncSingleExpenseToAtlas(entity)
+                android.util.Log.i("MongoDbManager", "Successfully written expense '${entity.title}' (${entity.amount}) to Atlas!")
             }
         }
 
         override suspend fun upsertExpenses(entities: List<ExpenseMongoEntity>) {
             withContext(dispatchers.io) {
-                entities.forEach { localStore[it._id] = it }
+                val col = ensureExpensesCollection()
+                entities.forEach { entity ->
+                    val doc = expenseEntityToDocument(entity)
+                    col.replaceOne(
+                        Filters.eq("_id", entity._id),
+                        doc,
+                        ReplaceOptions().upsert(true)
+                    )
+                    localStore[entity._id] = entity.copy(syncState = "SYNCED")
+                }
                 publishUpdate()
             }
         }
 
         override suspend fun deleteExpenseById(id: String) {
             withContext(dispatchers.io) {
+                val col = ensureExpensesCollection()
+                col.deleteOne(Filters.eq("_id", id))
                 localStore.remove(id)
                 publishUpdate()
-                deleteExpenseFromAtlas(id)
             }
         }
 
@@ -163,17 +181,12 @@ class MongoDbManagerImpl @Inject constructor(
         override suspend fun getUserById(id: String): UserMongoEntity? {
             return withContext(dispatchers.io) {
                 localUsersStore[id] ?: run {
-                    try {
-                        val col = ensureUsersCollection()
-                        val doc = col?.find(Filters.eq("_id", id))?.firstOrNull()
-                        doc?.let { d ->
-                            val entity = docToUserEntity(d)
-                            localUsersStore[id] = entity
-                            entity
-                        }
-                    } catch (t: Throwable) {
-                        android.util.Log.e("MongoDbManager", "Error querying Atlas by id: ${t.message}")
-                        null
+                    val col = ensureUsersCollection()
+                    val doc = col.find(Filters.eq("_id", id)).firstOrNull()
+                    doc?.let { d ->
+                        val entity = docToUserEntity(d)
+                        localUsersStore[id] = entity
+                        entity
                     }
                 }
             }
@@ -181,19 +194,14 @@ class MongoDbManagerImpl @Inject constructor(
 
         override suspend fun getUserByEmail(email: String): UserMongoEntity? {
             return withContext(dispatchers.io) {
-                val clean = email.trim()
+                val clean = email.trim().lowercase()
                 localUsersStore.values.firstOrNull { it.email.equals(clean, ignoreCase = true) } ?: run {
-                    try {
-                        val col = ensureUsersCollection()
-                        val doc = col?.find(Filters.eq("email", clean))?.firstOrNull()
-                        doc?.let { d ->
-                            val entity = docToUserEntity(d)
-                            localUsersStore[entity._id] = entity
-                            entity
-                        }
-                    } catch (t: Throwable) {
-                        android.util.Log.e("MongoDbManager", "Error querying Atlas by email: ${t.message}")
-                        null
+                    val col = ensureUsersCollection()
+                    val doc = col.find(Filters.eq("email", clean)).firstOrNull()
+                    doc?.let { d ->
+                        val entity = docToUserEntity(d)
+                        localUsersStore[entity._id] = entity
+                        entity
                     }
                 }
             }
@@ -201,24 +209,16 @@ class MongoDbManagerImpl @Inject constructor(
 
         override suspend fun upsertUser(entity: UserMongoEntity) {
             withContext(dispatchers.io) {
+                val col = ensureUsersCollection()
+                val doc = userEntityToDocument(entity)
+                col.replaceOne(
+                    Filters.eq("_id", entity._id),
+                    doc,
+                    ReplaceOptions().upsert(true)
+                )
                 localUsersStore[entity._id] = entity
                 publishUsersUpdate()
-                try {
-                    val col = ensureUsersCollection()
-                    if (col != null) {
-                        val doc = userEntityToDocument(entity)
-                        col.replaceOne(
-                            Filters.eq("_id", entity._id),
-                            doc,
-                            ReplaceOptions().upsert(true)
-                        )
-                        android.util.Log.i("MongoDbManager", "Successfully written user ${entity.email} to Atlas users collection!")
-                    } else {
-                        android.util.Log.w("MongoDbManager", "Atlas usersCollection not ready to persist user ${entity.email}")
-                    }
-                } catch (t: Throwable) {
-                    android.util.Log.e("MongoDbManager", "Failed writing user ${entity.email} to Atlas: ${t.message}", t)
-                }
+                android.util.Log.i("MongoDbManager", "Successfully written user ${entity.email} to Atlas users collection!")
             }
         }
 
@@ -284,9 +284,16 @@ class MongoDbManagerImpl @Inject constructor(
 
                 val settings = MongoClientSettings.builder()
                     .applyConnectionString(connectionString)
+                    .applyToClusterSettings {
+                        it.serverSelectionTimeout(8, TimeUnit.SECONDS)
+                    }
                     .applyToSocketSettings {
                         it.connectTimeout(8, TimeUnit.SECONDS)
                         it.readTimeout(8, TimeUnit.SECONDS)
+                    }
+                    .applyToSslSettings {
+                        it.enabled(true)
+                        it.context(SSLContext.getDefault())
                     }
                     .build()
 
@@ -300,6 +307,10 @@ class MongoDbManagerImpl @Inject constructor(
                 val dbName = connectionString.database ?: "ExpensesManagement"
                 val database = client.getDatabase(dbName)
                 mongoDatabase = database
+
+                // Actively verify connection to MongoDB Atlas
+                val pingDoc = database.runCommand(Document("ping", 1))
+                android.util.Log.i("MongoDbManager", "Successfully connected and pinged MongoDB Atlas: ${pingDoc.toJson()}")
 
                 // Ensure both collections explicitly exist in MongoDB Atlas so they show up in Compass/Atlas UI
                 try {
@@ -522,34 +533,45 @@ class MongoDbManagerImpl @Inject constructor(
                 _connectionState.value = MongoConnectionState.CONNECTED
                 Result.success(Unit)
             } catch (t: Throwable) {
-                _connectionState.value = MongoConnectionState.CONNECTED
+                android.util.Log.e("MongoDbManager", "Connection to MongoDB Atlas failed: ${t.message}", t)
+                _connectionState.value = MongoConnectionState.ERROR
+                expensesCollection = null
+                usersCollection = null
                 Result.failure(t)
             }
         }
     }
 
-    private suspend fun ensureUsersCollection(): MongoCollection<Document>? {
+    private suspend fun ensureUsersCollection(): MongoCollection<Document> {
         var col = usersCollection
         if (col == null) {
             val uri = firebaseConfigManager.dynamicConfig.value.dbConnectionUri
             if (uri.isNotBlank()) {
-                connectWithUri(uri)
+                val connRes = connectWithUri(uri)
+                if (connRes.isFailure) {
+                    val ex = connRes.exceptionOrNull()
+                    throw (ex ?: IllegalStateException("Could not establish connection to MongoDB Atlas"))
+                }
                 col = usersCollection
             }
         }
-        return col
+        return col ?: throw IllegalStateException("MongoDB Atlas users collection is not available. Please verify network.")
     }
 
-    private suspend fun ensureExpensesCollection(): MongoCollection<Document>? {
+    private suspend fun ensureExpensesCollection(): MongoCollection<Document> {
         var col = expensesCollection
         if (col == null) {
             val uri = firebaseConfigManager.dynamicConfig.value.dbConnectionUri
             if (uri.isNotBlank()) {
-                connectWithUri(uri)
+                val connRes = connectWithUri(uri)
+                if (connRes.isFailure) {
+                    val ex = connRes.exceptionOrNull()
+                    throw (ex ?: IllegalStateException("Could not establish connection to MongoDB Atlas"))
+                }
                 col = expensesCollection
             }
         }
-        return col
+        return col ?: throw IllegalStateException("MongoDB Atlas expenses collection is not available. Please verify network.")
     }
 
     private fun docToUserEntity(doc: Document): UserMongoEntity {
@@ -602,34 +624,7 @@ class MongoDbManagerImpl @Inject constructor(
             .append("familyId", entity.familyId)
     }
 
-    private fun syncSingleExpenseToAtlas(entity: ExpenseMongoEntity) {
-        CoroutineScope(dispatchers.io).launch {
-            try {
-                val collection = ensureExpensesCollection()
-                if (collection != null) {
-                    val doc = expenseEntityToDocument(entity)
-                    collection.replaceOne(
-                        Filters.eq("_id", entity._id),
-                        doc,
-                        ReplaceOptions().upsert(true)
-                    )
-                    expenseDao.markAsSynced(entity._id)
-                    android.util.Log.i("MongoDbManager", "Successfully synced expense '${entity.title}' (${entity.amount}) to Atlas!")
-                }
-            } catch (t: Throwable) {
-                android.util.Log.e("MongoDbManager", "Failed to sync expense '${entity.title}' to Atlas: ${t.message}", t)
-            }
-        }
-    }
 
-    private fun deleteExpenseFromAtlas(id: String) {
-        CoroutineScope(dispatchers.io).launch {
-            try {
-                val collection = ensureExpensesCollection()
-                collection?.deleteOne(Filters.eq("_id", id))
-            } catch (_: Throwable) {}
-        }
-    }
 
     override suspend fun disconnect() {
         withContext(dispatchers.io) {

@@ -61,7 +61,7 @@ class FirebaseConfigManagerImpl @Inject constructor(
             ConfigKeys.KEY_MONGO_REGION to "us-east-1",
             ConfigKeys.KEY_RECEIPT_SCAN_ENABLED to true,
             ConfigKeys.KEY_WELCOME_MESSAGE to "Welcome to Home Expense Tracker",
-            ConfigKeys.KEY_DB_CONNECTION to "mongodb+srv://teabuff_db_user:1XPvy4K8hHmzZqfg@cluster0.fithesf.mongodb.net/ExpensesManagement"
+            ConfigKeys.KEY_DB_CONNECTION to "mongodb://teabuff_db_user:1XPvy4K8hHmzZqfg@ac-cbt44uz-shard-00-00.fithesf.mongodb.net:27017,ac-cbt44uz-shard-00-01.fithesf.mongodb.net:27017,ac-cbt44uz-shard-00-02.fithesf.mongodb.net:27017/ExpensesManagement?ssl=true&replicaSet=atlas-12mqms-shard-0&authSource=admin"
         )
     }
 
@@ -94,7 +94,7 @@ class FirebaseConfigManagerImpl @Inject constructor(
             mongoClusterRegion = rc.getString(ConfigKeys.KEY_MONGO_REGION).ifEmpty { "us-east-1" },
             isReceiptScanEnabled = rc.getBoolean(ConfigKeys.KEY_RECEIPT_SCAN_ENABLED),
             welcomeMessage = rc.getString(ConfigKeys.KEY_WELCOME_MESSAGE).ifEmpty { "Welcome to Home Expense Tracker" },
-            dbConnectionUri = rc.getString(ConfigKeys.KEY_DB_CONNECTION).ifEmpty { "mongodb+srv://teabuff_db_user:1XPvy4K8hHmzZqfg@cluster0.fithesf.mongodb.net/ExpensesManagement" }
+            dbConnectionUri = rc.getString(ConfigKeys.KEY_DB_CONNECTION).ifEmpty { "mongodb://teabuff_db_user:1XPvy4K8hHmzZqfg@ac-cbt44uz-shard-00-00.fithesf.mongodb.net:27017,ac-cbt44uz-shard-00-01.fithesf.mongodb.net:27017,ac-cbt44uz-shard-00-02.fithesf.mongodb.net:27017/ExpensesManagement?ssl=true&replicaSet=atlas-12mqms-shard-0&authSource=admin" }
         )
     }
 

@@ -138,35 +138,23 @@ class AuthRepositoryImpl @Inject constructor(
     override suspend fun loginWithEmail(email: String, password: String): Result<UserProfile> {
         return withContext(dispatchers.io) {
             try {
-                val cleanEmail = email.trim()
+                val cleanEmail = email.trim().lowercase()
                 if (cleanEmail.isBlank()) {
                     return@withContext Result.failure(IllegalArgumentException("Email cannot be empty"))
+                }
+                if (password.isBlank()) {
+                    return@withContext Result.failure(IllegalArgumentException("Password cannot be empty"))
                 }
                 val passwordHash = password.hashCode().toString()
 
                 // Check if user exists in MongoDB
-                var userEntity = mongoDbManager.userDao.getUserByEmail(cleanEmail)
-
-                if (userEntity != null) {
-                    if (!userEntity.passwordHash.isNullOrBlank() && userEntity.passwordHash != passwordHash) {
-                        return@withContext Result.failure(IllegalArgumentException("Incorrect password for $cleanEmail"))
-                    }
-                } else {
-                    // Auto-create account directly in MongoDB Atlas
-                    val newEntity = UserMongoEntity(
-                        _id = UUID.randomUUID().toString(),
-                        name = cleanEmail.substringBefore("@").replace(".", " ").capitalizeWords(),
-                        email = cleanEmail,
-                        passwordHash = passwordHash,
-                        role = UserRole.HEAD_OF_HOUSEHOLD.name,
-                        relationship = FamilyRelationship.HEAD.name,
-                        familyId = "family_${UUID.randomUUID().toString().take(8)}",
-                        authProvider = "PASSWORD",
-                        createdAt = System.currentTimeMillis(),
-                        updatedAt = System.currentTimeMillis()
+                val userEntity = mongoDbManager.userDao.getUserByEmail(cleanEmail)
+                    ?: return@withContext Result.failure(
+                        IllegalArgumentException("Account not found for $cleanEmail. Please click 'Register' to create an account.")
                     )
-                    mongoDbManager.userDao.upsertUser(newEntity)
-                    userEntity = newEntity
+
+                if (!userEntity.passwordHash.isNullOrBlank() && userEntity.passwordHash != passwordHash) {
+                    return@withContext Result.failure(IllegalArgumentException("Incorrect password for $cleanEmail. Please try again."))
                 }
 
                 val profile = userEntity.toDomain()
@@ -188,13 +176,23 @@ class AuthRepositoryImpl @Inject constructor(
     ): Result<UserProfile> {
         return withContext(dispatchers.io) {
             try {
-                val cleanEmail = email.trim()
+                val cleanEmail = email.trim().lowercase()
                 val cleanName = name.trim()
+
+                if (cleanName.isBlank()) {
+                    return@withContext Result.failure(IllegalArgumentException("Full Name cannot be empty"))
+                }
+                if (cleanEmail.isBlank()) {
+                    return@withContext Result.failure(IllegalArgumentException("Email Address cannot be empty"))
+                }
+                if (password.length < 6) {
+                    return@withContext Result.failure(IllegalArgumentException("Password must be at least 6 characters"))
+                }
 
                 // Check MongoDB if email already registered
                 val existing = mongoDbManager.userDao.getUserByEmail(cleanEmail)
                 if (existing != null) {
-                    return@withContext Result.failure(IllegalArgumentException("Email is already registered in MongoDB"))
+                    return@withContext Result.failure(IllegalArgumentException("An account with $cleanEmail already exists. Please Sign In."))
                 }
 
                 val familyId = if (role == UserRole.HEAD_OF_HOUSEHOLD) {
@@ -216,7 +214,7 @@ class AuthRepositoryImpl @Inject constructor(
                     updatedAt = System.currentTimeMillis()
                 )
 
-                // Save directly to MongoDB Atlas
+                // Save directly to MongoDB Atlas synchronously
                 mongoDbManager.userDao.upsertUser(entity)
 
                 val profile = entity.toDomain()
@@ -224,7 +222,7 @@ class AuthRepositoryImpl @Inject constructor(
                 _currentUser.value = profile
                 Result.success(profile)
             } catch (e: Exception) {
-                Result.failure(Exception(e.localizedMessage ?: "Failed to create account"))
+                Result.failure(Exception(e.localizedMessage ?: "Failed to create account in MongoDB Atlas"))
             }
         }
     }
@@ -232,7 +230,7 @@ class AuthRepositoryImpl @Inject constructor(
     override suspend fun loginWithGoogle(displayName: String?, email: String?): Result<UserProfile> {
         return withContext(dispatchers.io) {
             try {
-                val cleanEmail = email?.trim()
+                val cleanEmail = email?.trim()?.lowercase()
                 if (cleanEmail.isNullOrBlank()) {
                     return@withContext Result.failure(IllegalArgumentException("Google account email is required"))
                 }
