@@ -1,6 +1,7 @@
 package com.enterprise.expensetracker.core.database
 
 import com.enterprise.expensetracker.core.database.dao.ExpenseMongoDao
+import com.enterprise.expensetracker.core.database.dao.UserMongoDao
 import kotlinx.coroutines.flow.StateFlow
 
 enum class MongoConnectionState {
@@ -20,6 +21,7 @@ interface MongoDbManager {
     val connectionState: StateFlow<MongoConnectionState>
     val activeConnectionUri: StateFlow<String>
     val expenseDao: ExpenseMongoDao
+    val userDao: UserMongoDao
 
     suspend fun initialize(appId: String, apiKey: String? = null)
     suspend fun connectWithUri(uri: String): Result<Unit>

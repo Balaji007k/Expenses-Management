@@ -3,7 +3,9 @@ package com.enterprise.expensetracker.core.database
 import android.content.Context
 import com.enterprise.expensetracker.core.common.dispatchers.CoroutineDispatchers
 import com.enterprise.expensetracker.core.database.dao.ExpenseMongoDao
+import com.enterprise.expensetracker.core.database.dao.UserMongoDao
 import com.enterprise.expensetracker.core.database.entity.ExpenseMongoEntity
+import com.enterprise.expensetracker.core.database.entity.UserMongoEntity
 import com.enterprise.expensetracker.core.remoteconfig.FirebaseConfigManager
 import com.mongodb.ConnectionString
 import com.mongodb.MongoClientSettings
@@ -58,10 +60,14 @@ class MongoDbManagerImpl @Inject constructor(
     private var mongoClient: MongoClient? = null
     private var mongoDatabase: MongoDatabase? = null
     private var expensesCollection: MongoCollection<Document>? = null
+    private var usersCollection: MongoCollection<Document>? = null
 
     // Thread-safe in-memory & persistent cache store
     private val localStore = ConcurrentHashMap<String, ExpenseMongoEntity>()
     private val _expensesFlow = MutableStateFlow<List<ExpenseMongoEntity>>(emptyList())
+
+    private val localUsersStore = ConcurrentHashMap<String, UserMongoEntity>()
+    private val _usersFlow = MutableStateFlow<List<UserMongoEntity>>(emptyList())
 
     init {
         // Observe dynamic connection changes from Firebase Remote Config safely
@@ -143,8 +149,66 @@ class MongoDbManagerImpl @Inject constructor(
         }
     }
 
+    override val userDao: UserMongoDao = object : UserMongoDao {
+        override fun getAllUsersFlow(): Flow<List<UserMongoEntity>> {
+            return _usersFlow.asStateFlow()
+        }
+
+        override fun getFamilyMembersFlow(familyId: String): Flow<List<UserMongoEntity>> {
+            return _usersFlow.map { list ->
+                list.filter { it.familyId == familyId }
+            }
+        }
+
+        override suspend fun getUserById(id: String): UserMongoEntity? {
+            return withContext(dispatchers.io) {
+                localUsersStore[id]
+            }
+        }
+
+        override suspend fun getUserByEmail(email: String): UserMongoEntity? {
+            return withContext(dispatchers.io) {
+                localUsersStore.values.firstOrNull { it.email.equals(email.trim(), ignoreCase = true) }
+            }
+        }
+
+        override suspend fun upsertUser(entity: UserMongoEntity) {
+            withContext(dispatchers.io) {
+                localUsersStore[entity._id] = entity
+                publishUsersUpdate()
+                syncSingleUserToAtlas(entity)
+            }
+        }
+
+        override suspend fun upsertUsers(entities: List<UserMongoEntity>) {
+            withContext(dispatchers.io) {
+                entities.forEach { localUsersStore[it._id] = it }
+                publishUsersUpdate()
+            }
+        }
+
+        override suspend fun deleteUserById(id: String) {
+            withContext(dispatchers.io) {
+                localUsersStore.remove(id)
+                publishUsersUpdate()
+                deleteUserFromAtlas(id)
+            }
+        }
+
+        override suspend fun clearAll() {
+            withContext(dispatchers.io) {
+                localUsersStore.clear()
+                publishUsersUpdate()
+            }
+        }
+    }
+
     private fun publishUpdate() {
         _expensesFlow.value = localStore.values.sortedByDescending { it.timestamp }
+    }
+
+    private fun publishUsersUpdate() {
+        _usersFlow.value = localUsersStore.values.toList()
     }
 
     override suspend fun initialize(appId: String, apiKey: String?) {
@@ -182,6 +246,7 @@ class MongoDbManagerImpl @Inject constructor(
                 val database = client.getDatabase(dbName)
                 mongoDatabase = database
                 expensesCollection = database.getCollection("expenses")
+                usersCollection = database.getCollection("users")
 
                 _connectionState.value = MongoConnectionState.CONNECTED
 
@@ -294,6 +359,10 @@ class MongoDbManagerImpl @Inject constructor(
                             .append("isRecurring", entity.isRecurring)
                             .append("isAiPredicted", entity.isAiPredicted)
                             .append("updatedAt", entity.updatedAt)
+                            .append("createdByUserId", entity.createdByUserId)
+                            .append("createdByUserName", entity.createdByUserName)
+                            .append("createdByRelationship", entity.createdByRelationship)
+                            .append("familyId", entity.familyId)
 
                         collection.replaceOne(
                             Filters.eq("_id", entity._id),
@@ -304,7 +373,7 @@ class MongoDbManagerImpl @Inject constructor(
                     }
 
                     // 2. Pull remote records from MongoDB Atlas down to local cache
-                    val remoteCursor = collection.find().limit(100).iterator()
+                    val remoteCursor = collection.find().limit(200).iterator()
                     while (remoteCursor.hasNext()) {
                         val doc = remoteCursor.next()
                         val id = doc.getString("_id") ?: doc.getObjectId("_id")?.toHexString() ?: continue
@@ -330,6 +399,53 @@ class MongoDbManagerImpl @Inject constructor(
                         localStore[id] = remoteEntity
                     }
                     publishUpdate()
+                }
+
+                // 3. Bidirectional User & Family Member Sync with MongoDB Atlas
+                val usersCol = usersCollection
+                if (usersCol != null) {
+                    // Push local users to Atlas
+                    for (entity in localUsersStore.values) {
+                        val userDoc = Document("_id", entity._id)
+                            .append("name", entity.name)
+                            .append("email", entity.email)
+                            .append("passwordHash", entity.passwordHash)
+                            .append("role", entity.role)
+                            .append("relationship", entity.relationship)
+                            .append("familyId", entity.familyId)
+                            .append("authProvider", entity.authProvider)
+                            .append("avatarUrl", entity.avatarUrl)
+                            .append("createdAt", entity.createdAt)
+                            .append("updatedAt", entity.updatedAt)
+
+                        usersCol.replaceOne(
+                            Filters.eq("_id", entity._id),
+                            userDoc,
+                            ReplaceOptions().upsert(true)
+                        )
+                    }
+
+                    // Pull remote users from MongoDB Atlas down to local cache
+                    val userCursor = usersCol.find().limit(200).iterator()
+                    while (userCursor.hasNext()) {
+                        val doc = userCursor.next()
+                        val id = doc.getString("_id") ?: doc.getObjectId("_id")?.toHexString() ?: continue
+                        val userEntity = UserMongoEntity(
+                            _id = id,
+                            name = doc.getString("name") ?: "",
+                            email = doc.getString("email") ?: "",
+                            passwordHash = doc.getString("passwordHash") ?: "",
+                            role = doc.getString("role") ?: "HEAD_OF_HOUSEHOLD",
+                            relationship = doc.getString("relationship") ?: "HEAD",
+                            familyId = doc.getString("familyId") ?: "family_primary",
+                            authProvider = doc.getString("authProvider") ?: "PASSWORD",
+                            avatarUrl = doc.getString("avatarUrl"),
+                            createdAt = (doc.get("createdAt") as? Number)?.toLong() ?: System.currentTimeMillis(),
+                            updatedAt = (doc.get("updatedAt") as? Number)?.toLong() ?: System.currentTimeMillis()
+                        )
+                        localUsersStore[id] = userEntity
+                    }
+                    publishUsersUpdate()
                 }
 
                 _connectionState.value = MongoConnectionState.CONNECTED
@@ -385,6 +501,44 @@ class MongoDbManagerImpl @Inject constructor(
         }
     }
 
+    private fun syncSingleUserToAtlas(entity: UserMongoEntity) {
+        val collection = usersCollection ?: return
+        CoroutineScope(dispatchers.io).launch {
+            try {
+                val doc = Document("_id", entity._id)
+                    .append("name", entity.name)
+                    .append("email", entity.email)
+                    .append("passwordHash", entity.passwordHash)
+                    .append("role", entity.role)
+                    .append("relationship", entity.relationship)
+                    .append("familyId", entity.familyId)
+                    .append("authProvider", entity.authProvider)
+                    .append("avatarUrl", entity.avatarUrl)
+                    .append("createdAt", entity.createdAt)
+                    .append("updatedAt", entity.updatedAt)
+
+                collection.replaceOne(
+                    Filters.eq("_id", entity._id),
+                    doc,
+                    ReplaceOptions().upsert(true)
+                )
+            } catch (_: Throwable) {
+                // Maintained in local store
+            }
+        }
+    }
+
+    private fun deleteUserFromAtlas(id: String) {
+        val collection = usersCollection ?: return
+        CoroutineScope(dispatchers.io).launch {
+            try {
+                collection.deleteOne(Filters.eq("_id", id))
+            } catch (_: Throwable) {
+                // Handle offline delete
+            }
+        }
+    }
+
     override suspend fun disconnect() {
         withContext(dispatchers.io) {
             try {
@@ -392,6 +546,7 @@ class MongoDbManagerImpl @Inject constructor(
             } catch (_: Throwable) {}
             mongoClient = null
             expensesCollection = null
+            usersCollection = null
             mongoDatabase = null
             _connectionState.value = MongoConnectionState.DISCONNECTED
         }
