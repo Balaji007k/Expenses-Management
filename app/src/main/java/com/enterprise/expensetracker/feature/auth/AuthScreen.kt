@@ -94,6 +94,31 @@ fun AuthScreen(
     var directGoogleEmail by remember { mutableStateOf("") }
     var directGoogleName by remember { mutableStateOf("") }
 
+    val accountPickerLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.StartActivityForResult()
+    ) { result ->
+        if (result.resultCode == Activity.RESULT_OK && result.data != null) {
+            val selectedEmail = result.data?.getStringExtra(AccountManager.KEY_ACCOUNT_NAME)?.trim().orEmpty()
+            if (selectedEmail.isNotBlank()) {
+                val resolvedName = selectedEmail.substringBefore("@")
+                    .replace(".", " ")
+                    .split(" ")
+                    .filter { it.isNotBlank() }
+                    .joinToString(" ") { word -> word.replaceFirstChar { c -> c.uppercase() } }
+                viewModel.dispatchEvent(
+                    AuthEvent.GoogleSignInSuccess(
+                        email = selectedEmail,
+                        displayName = resolvedName
+                    )
+                )
+            } else {
+                showDirectGoogleDialog = true
+            }
+        } else if (result.resultCode != Activity.RESULT_CANCELED) {
+            showDirectGoogleDialog = true
+        }
+    }
+
     val googleSignInLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.StartActivityForResult()
     ) { result ->
@@ -121,46 +146,25 @@ fun AuthScreen(
                     viewModel.dispatchEvent(AuthEvent.GoogleSignInFailure("Google sign-in was cancelled."))
                 }
                 else -> {
-                    showDirectGoogleDialog = true
-                    viewModel.dispatchEvent(
-                        AuthEvent.GoogleSignInFailure(
-                            "Google Play Services verification code ${e.statusCode}. You can sign in directly below with your Google email."
+                    try {
+                        val chooseAccountIntent = AccountManager.newChooseAccountIntent(
+                            null, null, arrayOf("com.google"), false, null, null, null, null
                         )
-                    )
+                        accountPickerLauncher.launch(chooseAccountIntent)
+                    } catch (_: Exception) {
+                        showDirectGoogleDialog = true
+                    }
                 }
             }
-        } catch (e: Exception) {
-            showDirectGoogleDialog = true
-            viewModel.dispatchEvent(
-                AuthEvent.GoogleSignInFailure(
-                    e.localizedMessage ?: "Google sign-in failed. Please verify credentials."
+        } catch (_: Exception) {
+            try {
+                val chooseAccountIntent = AccountManager.newChooseAccountIntent(
+                    null, null, arrayOf("com.google"), false, null, null, null, null
                 )
-            )
-        }
-    }
-
-    val accountPickerLauncher = rememberLauncherForActivityResult(
-        contract = ActivityResultContracts.StartActivityForResult()
-    ) { result ->
-        if (result.resultCode == Activity.RESULT_OK && result.data != null) {
-            val selectedEmail = result.data?.getStringExtra(AccountManager.KEY_ACCOUNT_NAME)?.trim().orEmpty()
-            if (selectedEmail.isNotBlank()) {
-                val resolvedName = selectedEmail.substringBefore("@")
-                    .replace(".", " ")
-                    .split(" ")
-                    .filter { it.isNotBlank() }
-                    .joinToString(" ") { word -> word.replaceFirstChar { c -> c.uppercase() } }
-                viewModel.dispatchEvent(
-                    AuthEvent.GoogleSignInSuccess(
-                        email = selectedEmail,
-                        displayName = resolvedName
-                    )
-                )
-            } else {
+                accountPickerLauncher.launch(chooseAccountIntent)
+            } catch (_: Exception) {
                 showDirectGoogleDialog = true
             }
-        } else if (result.resultCode != Activity.RESULT_CANCELED) {
-            showDirectGoogleDialog = true
         }
     }
 
