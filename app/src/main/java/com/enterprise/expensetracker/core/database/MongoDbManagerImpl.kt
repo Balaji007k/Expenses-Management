@@ -162,13 +162,40 @@ class MongoDbManagerImpl @Inject constructor(
 
         override suspend fun getUserById(id: String): UserMongoEntity? {
             return withContext(dispatchers.io) {
-                localUsersStore[id]
+                localUsersStore[id] ?: run {
+                    try {
+                        val col = ensureUsersCollection()
+                        val doc = col?.find(Filters.eq("_id", id))?.firstOrNull()
+                        doc?.let { d ->
+                            val entity = docToUserEntity(d)
+                            localUsersStore[id] = entity
+                            entity
+                        }
+                    } catch (t: Throwable) {
+                        android.util.Log.e("MongoDbManager", "Error querying Atlas by id: ${t.message}")
+                        null
+                    }
+                }
             }
         }
 
         override suspend fun getUserByEmail(email: String): UserMongoEntity? {
             return withContext(dispatchers.io) {
-                localUsersStore.values.firstOrNull { it.email.equals(email.trim(), ignoreCase = true) }
+                val clean = email.trim()
+                localUsersStore.values.firstOrNull { it.email.equals(clean, ignoreCase = true) } ?: run {
+                    try {
+                        val col = ensureUsersCollection()
+                        val doc = col?.find(Filters.eq("email", clean))?.firstOrNull()
+                        doc?.let { d ->
+                            val entity = docToUserEntity(d)
+                            localUsersStore[entity._id] = entity
+                            entity
+                        }
+                    } catch (t: Throwable) {
+                        android.util.Log.e("MongoDbManager", "Error querying Atlas by email: ${t.message}")
+                        null
+                    }
+                }
             }
         }
 
@@ -176,13 +203,38 @@ class MongoDbManagerImpl @Inject constructor(
             withContext(dispatchers.io) {
                 localUsersStore[entity._id] = entity
                 publishUsersUpdate()
-                syncSingleUserToAtlas(entity)
+                try {
+                    val col = ensureUsersCollection()
+                    if (col != null) {
+                        val doc = userEntityToDocument(entity)
+                        col.replaceOne(
+                            Filters.eq("_id", entity._id),
+                            doc,
+                            ReplaceOptions().upsert(true)
+                        )
+                        android.util.Log.i("MongoDbManager", "Successfully written user ${entity.email} to Atlas users collection!")
+                    } else {
+                        android.util.Log.w("MongoDbManager", "Atlas usersCollection not ready to persist user ${entity.email}")
+                    }
+                } catch (t: Throwable) {
+                    android.util.Log.e("MongoDbManager", "Failed writing user ${entity.email} to Atlas: ${t.message}", t)
+                }
             }
         }
 
         override suspend fun upsertUsers(entities: List<UserMongoEntity>) {
             withContext(dispatchers.io) {
-                entities.forEach { localUsersStore[it._id] = it }
+                entities.forEach { entity ->
+                    localUsersStore[entity._id] = entity
+                    try {
+                        val col = ensureUsersCollection()
+                        col?.replaceOne(
+                            Filters.eq("_id", entity._id),
+                            userEntityToDocument(entity),
+                            ReplaceOptions().upsert(true)
+                        )
+                    } catch (_: Throwable) {}
+                }
                 publishUsersUpdate()
             }
         }
@@ -191,7 +243,10 @@ class MongoDbManagerImpl @Inject constructor(
             withContext(dispatchers.io) {
                 localUsersStore.remove(id)
                 publishUsersUpdate()
-                deleteUserFromAtlas(id)
+                try {
+                    val col = ensureUsersCollection()
+                    col?.deleteOne(Filters.eq("_id", id))
+                } catch (_: Throwable) {}
             }
         }
 
@@ -445,18 +500,7 @@ class MongoDbManagerImpl @Inject constructor(
                     // Push local users to Atlas
                     for (entity in localUsersStore.values) {
                         if (entity._id in listOf("head_user_001", "member_user_002", "member_user_003")) continue
-                        val userDoc = Document("_id", entity._id)
-                            .append("name", entity.name)
-                            .append("email", entity.email)
-                            .append("passwordHash", entity.passwordHash)
-                            .append("role", entity.role)
-                            .append("relationship", entity.relationship)
-                            .append("familyId", entity.familyId)
-                            .append("authProvider", entity.authProvider)
-                            .append("avatarUrl", entity.avatarUrl)
-                            .append("createdAt", entity.createdAt)
-                            .append("updatedAt", entity.updatedAt)
-
+                        val userDoc = userEntityToDocument(entity)
                         usersCol.replaceOne(
                             Filters.eq("_id", entity._id),
                             userDoc,
@@ -468,22 +512,9 @@ class MongoDbManagerImpl @Inject constructor(
                     val userCursor = usersCol.find().limit(200).iterator()
                     while (userCursor.hasNext()) {
                         val doc = userCursor.next()
-                        val id = doc.getString("_id") ?: doc.getObjectId("_id")?.toHexString() ?: continue
-                        if (id in listOf("head_user_001", "member_user_002", "member_user_003")) continue
-                        val userEntity = UserMongoEntity(
-                            _id = id,
-                            name = doc.getString("name") ?: "",
-                            email = doc.getString("email") ?: "",
-                            passwordHash = doc.getString("passwordHash") ?: "",
-                            role = doc.getString("role") ?: "HEAD_OF_HOUSEHOLD",
-                            relationship = doc.getString("relationship") ?: "HEAD",
-                            familyId = doc.getString("familyId") ?: "family_primary",
-                            authProvider = doc.getString("authProvider") ?: "PASSWORD",
-                            avatarUrl = doc.getString("avatarUrl"),
-                            createdAt = (doc.get("createdAt") as? Number)?.toLong() ?: System.currentTimeMillis(),
-                            updatedAt = (doc.get("updatedAt") as? Number)?.toLong() ?: System.currentTimeMillis()
-                        )
-                        localUsersStore[id] = userEntity
+                        val userEntity = docToUserEntity(doc)
+                        if (userEntity._id in listOf("head_user_001", "member_user_002", "member_user_003") || userEntity._id.isBlank()) continue
+                        localUsersStore[userEntity._id] = userEntity
                     }
                     publishUsersUpdate()
                 }
@@ -497,33 +528,86 @@ class MongoDbManagerImpl @Inject constructor(
         }
     }
 
+    private suspend fun ensureUsersCollection(): MongoCollection<Document>? {
+        var col = usersCollection
+        if (col == null) {
+            val uri = firebaseConfigManager.dynamicConfig.value.dbConnectionUri
+            if (uri.isNotBlank()) {
+                connectWithUri(uri)
+                col = usersCollection
+            }
+        }
+        return col
+    }
+
+    private suspend fun ensureExpensesCollection(): MongoCollection<Document>? {
+        var col = expensesCollection
+        if (col == null) {
+            val uri = firebaseConfigManager.dynamicConfig.value.dbConnectionUri
+            if (uri.isNotBlank()) {
+                connectWithUri(uri)
+                col = expensesCollection
+            }
+        }
+        return col
+    }
+
+    private fun docToUserEntity(doc: Document): UserMongoEntity {
+        val id = doc.getString("_id") ?: doc.getObjectId("_id")?.toHexString().orEmpty()
+        return UserMongoEntity(
+            _id = id,
+            name = doc.getString("name").orEmpty(),
+            email = doc.getString("email").orEmpty(),
+            passwordHash = doc.getString("passwordHash").orEmpty(),
+            role = doc.getString("role") ?: "HEAD_OF_HOUSEHOLD",
+            relationship = doc.getString("relationship") ?: "HEAD",
+            familyId = doc.getString("familyId") ?: "family_primary",
+            authProvider = doc.getString("authProvider") ?: "PASSWORD",
+            avatarUrl = doc.getString("avatarUrl"),
+            createdAt = (doc.get("createdAt") as? Number)?.toLong() ?: System.currentTimeMillis(),
+            updatedAt = (doc.get("updatedAt") as? Number)?.toLong() ?: System.currentTimeMillis()
+        )
+    }
+
+    private fun userEntityToDocument(entity: UserMongoEntity): Document {
+        return Document("_id", entity._id)
+            .append("name", entity.name)
+            .append("email", entity.email)
+            .append("passwordHash", entity.passwordHash)
+            .append("role", entity.role)
+            .append("relationship", entity.relationship)
+            .append("familyId", entity.familyId)
+            .append("authProvider", entity.authProvider)
+            .append("avatarUrl", entity.avatarUrl)
+            .append("createdAt", entity.createdAt)
+            .append("updatedAt", entity.updatedAt)
+    }
+
+    private fun expenseEntityToDocument(entity: ExpenseMongoEntity): Document {
+        return Document("_id", entity._id)
+            .append("ownerId", entity.ownerId)
+            .append("title", entity.title)
+            .append("amount", entity.amount)
+            .append("categoryId", entity.categoryId)
+            .append("currencyCode", entity.currencyCode)
+            .append("timestamp", entity.timestamp)
+            .append("notes", entity.notes)
+            .append("receiptUrl", entity.receiptUrl)
+            .append("isRecurring", entity.isRecurring)
+            .append("isAiPredicted", entity.isAiPredicted)
+            .append("updatedAt", entity.updatedAt)
+            .append("createdByUserId", entity.createdByUserId)
+            .append("createdByUserName", entity.createdByUserName)
+            .append("createdByRelationship", entity.createdByRelationship)
+            .append("familyId", entity.familyId)
+    }
+
     private fun syncSingleExpenseToAtlas(entity: ExpenseMongoEntity) {
         CoroutineScope(dispatchers.io).launch {
             try {
-                var collection = expensesCollection
-                if (collection == null) {
-                    val uri = firebaseConfigManager.dynamicConfig.value.dbConnectionUri
-                    connectWithUri(uri)
-                    collection = expensesCollection
-                }
+                val collection = ensureExpensesCollection()
                 if (collection != null) {
-                    val doc = Document("_id", entity._id)
-                        .append("ownerId", entity.ownerId)
-                        .append("title", entity.title)
-                        .append("amount", entity.amount)
-                        .append("categoryId", entity.categoryId)
-                        .append("currencyCode", entity.currencyCode)
-                        .append("timestamp", entity.timestamp)
-                        .append("notes", entity.notes)
-                        .append("receiptUrl", entity.receiptUrl)
-                        .append("isRecurring", entity.isRecurring)
-                        .append("isAiPredicted", entity.isAiPredicted)
-                        .append("updatedAt", entity.updatedAt)
-                        .append("createdByUserId", entity.createdByUserId)
-                        .append("createdByUserName", entity.createdByUserName)
-                        .append("createdByRelationship", entity.createdByRelationship)
-                        .append("familyId", entity.familyId)
-
+                    val doc = expenseEntityToDocument(entity)
                     collection.replaceOne(
                         Filters.eq("_id", entity._id),
                         doc,
@@ -539,61 +623,11 @@ class MongoDbManagerImpl @Inject constructor(
     }
 
     private fun deleteExpenseFromAtlas(id: String) {
-        val collection = expensesCollection ?: return
         CoroutineScope(dispatchers.io).launch {
             try {
-                collection.deleteOne(Filters.eq("_id", id))
-            } catch (_: Throwable) {
-                // Handle offline delete
-            }
-        }
-    }
-
-    private fun syncSingleUserToAtlas(entity: UserMongoEntity) {
-        CoroutineScope(dispatchers.io).launch {
-            try {
-                var collection = usersCollection
-                if (collection == null) {
-                    val uri = firebaseConfigManager.dynamicConfig.value.dbConnectionUri
-                    connectWithUri(uri)
-                    collection = usersCollection
-                }
-                if (collection != null) {
-                    val doc = Document("_id", entity._id)
-                        .append("name", entity.name)
-                        .append("email", entity.email)
-                        .append("passwordHash", entity.passwordHash)
-                        .append("role", entity.role)
-                        .append("relationship", entity.relationship)
-                        .append("familyId", entity.familyId)
-                        .append("authProvider", entity.authProvider)
-                        .append("avatarUrl", entity.avatarUrl)
-                        .append("createdAt", entity.createdAt)
-                        .append("updatedAt", entity.updatedAt)
-
-                    collection.replaceOne(
-                        Filters.eq("_id", entity._id),
-                        doc,
-                        ReplaceOptions().upsert(true)
-                    )
-                    android.util.Log.i("MongoDbManager", "Successfully synced user ${entity.email} to MongoDB Atlas users collection!")
-                } else {
-                    android.util.Log.w("MongoDbManager", "usersCollection is null; could not sync user ${entity.email}")
-                }
-            } catch (t: Throwable) {
-                android.util.Log.e("MongoDbManager", "Failed to sync user ${entity.email} to Atlas: ${t.message}", t)
-            }
-        }
-    }
-
-    private fun deleteUserFromAtlas(id: String) {
-        val collection = usersCollection ?: return
-        CoroutineScope(dispatchers.io).launch {
-            try {
-                collection.deleteOne(Filters.eq("_id", id))
-            } catch (_: Throwable) {
-                // Handle offline delete
-            }
+                val collection = ensureExpensesCollection()
+                collection?.deleteOne(Filters.eq("_id", id))
+            } catch (_: Throwable) {}
         }
     }
 
