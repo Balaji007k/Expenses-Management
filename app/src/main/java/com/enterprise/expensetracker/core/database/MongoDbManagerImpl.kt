@@ -245,7 +245,21 @@ class MongoDbManagerImpl @Inject constructor(
                 val dbName = connectionString.database ?: "ExpensesManagement"
                 val database = client.getDatabase(dbName)
                 mongoDatabase = database
-                expensesCollection = database.getCollection("expenses")
+
+                // Ensure both collections explicitly exist in MongoDB Atlas so they show up in Compass/Atlas UI
+                try {
+                    val existingCols = database.listCollectionNames().toList()
+                    if (!existingCols.any { it.equals("users", ignoreCase = true) }) {
+                        database.createCollection("users")
+                    }
+                    if (!existingCols.any { it.equals("Expense", ignoreCase = true) || it.equals("expenses", ignoreCase = true) }) {
+                        database.createCollection("Expense")
+                    }
+                } catch (_: Throwable) {}
+
+                val allCols = database.listCollectionNames().toList()
+                val expenseColName = if (allCols.contains("Expense")) "Expense" else if (allCols.contains("expenses")) "expenses" else "Expense"
+                expensesCollection = database.getCollection(expenseColName)
                 usersCollection = database.getCollection("users")
 
                 _connectionState.value = MongoConnectionState.CONNECTED
@@ -484,34 +498,42 @@ class MongoDbManagerImpl @Inject constructor(
     }
 
     private fun syncSingleExpenseToAtlas(entity: ExpenseMongoEntity) {
-        val collection = expensesCollection ?: return
         CoroutineScope(dispatchers.io).launch {
             try {
-                val doc = Document("_id", entity._id)
-                    .append("ownerId", entity.ownerId)
-                    .append("title", entity.title)
-                    .append("amount", entity.amount)
-                    .append("categoryId", entity.categoryId)
-                    .append("currencyCode", entity.currencyCode)
-                    .append("timestamp", entity.timestamp)
-                    .append("notes", entity.notes)
-                    .append("receiptUrl", entity.receiptUrl)
-                    .append("isRecurring", entity.isRecurring)
-                    .append("isAiPredicted", entity.isAiPredicted)
-                    .append("updatedAt", entity.updatedAt)
-                    .append("createdByUserId", entity.createdByUserId)
-                    .append("createdByUserName", entity.createdByUserName)
-                    .append("createdByRelationship", entity.createdByRelationship)
-                    .append("familyId", entity.familyId)
+                var collection = expensesCollection
+                if (collection == null) {
+                    val uri = firebaseConfigManager.dynamicConfig.value.dbConnectionUri
+                    connectWithUri(uri)
+                    collection = expensesCollection
+                }
+                if (collection != null) {
+                    val doc = Document("_id", entity._id)
+                        .append("ownerId", entity.ownerId)
+                        .append("title", entity.title)
+                        .append("amount", entity.amount)
+                        .append("categoryId", entity.categoryId)
+                        .append("currencyCode", entity.currencyCode)
+                        .append("timestamp", entity.timestamp)
+                        .append("notes", entity.notes)
+                        .append("receiptUrl", entity.receiptUrl)
+                        .append("isRecurring", entity.isRecurring)
+                        .append("isAiPredicted", entity.isAiPredicted)
+                        .append("updatedAt", entity.updatedAt)
+                        .append("createdByUserId", entity.createdByUserId)
+                        .append("createdByUserName", entity.createdByUserName)
+                        .append("createdByRelationship", entity.createdByRelationship)
+                        .append("familyId", entity.familyId)
 
-                collection.replaceOne(
-                    Filters.eq("_id", entity._id),
-                    doc,
-                    ReplaceOptions().upsert(true)
-                )
-                expenseDao.markAsSynced(entity._id)
-            } catch (_: Throwable) {
-                // Kept as pending sync in local store
+                    collection.replaceOne(
+                        Filters.eq("_id", entity._id),
+                        doc,
+                        ReplaceOptions().upsert(true)
+                    )
+                    expenseDao.markAsSynced(entity._id)
+                    android.util.Log.i("MongoDbManager", "Successfully synced expense '${entity.title}' (${entity.amount}) to Atlas!")
+                }
+            } catch (t: Throwable) {
+                android.util.Log.e("MongoDbManager", "Failed to sync expense '${entity.title}' to Atlas: ${t.message}", t)
             }
         }
     }
@@ -528,28 +550,38 @@ class MongoDbManagerImpl @Inject constructor(
     }
 
     private fun syncSingleUserToAtlas(entity: UserMongoEntity) {
-        val collection = usersCollection ?: return
         CoroutineScope(dispatchers.io).launch {
             try {
-                val doc = Document("_id", entity._id)
-                    .append("name", entity.name)
-                    .append("email", entity.email)
-                    .append("passwordHash", entity.passwordHash)
-                    .append("role", entity.role)
-                    .append("relationship", entity.relationship)
-                    .append("familyId", entity.familyId)
-                    .append("authProvider", entity.authProvider)
-                    .append("avatarUrl", entity.avatarUrl)
-                    .append("createdAt", entity.createdAt)
-                    .append("updatedAt", entity.updatedAt)
+                var collection = usersCollection
+                if (collection == null) {
+                    val uri = firebaseConfigManager.dynamicConfig.value.dbConnectionUri
+                    connectWithUri(uri)
+                    collection = usersCollection
+                }
+                if (collection != null) {
+                    val doc = Document("_id", entity._id)
+                        .append("name", entity.name)
+                        .append("email", entity.email)
+                        .append("passwordHash", entity.passwordHash)
+                        .append("role", entity.role)
+                        .append("relationship", entity.relationship)
+                        .append("familyId", entity.familyId)
+                        .append("authProvider", entity.authProvider)
+                        .append("avatarUrl", entity.avatarUrl)
+                        .append("createdAt", entity.createdAt)
+                        .append("updatedAt", entity.updatedAt)
 
-                collection.replaceOne(
-                    Filters.eq("_id", entity._id),
-                    doc,
-                    ReplaceOptions().upsert(true)
-                )
-            } catch (_: Throwable) {
-                // Maintained in local store
+                    collection.replaceOne(
+                        Filters.eq("_id", entity._id),
+                        doc,
+                        ReplaceOptions().upsert(true)
+                    )
+                    android.util.Log.i("MongoDbManager", "Successfully synced user ${entity.email} to MongoDB Atlas users collection!")
+                } else {
+                    android.util.Log.w("MongoDbManager", "usersCollection is null; could not sync user ${entity.email}")
+                }
+            } catch (t: Throwable) {
+                android.util.Log.e("MongoDbManager", "Failed to sync user ${entity.email} to Atlas: ${t.message}", t)
             }
         }
     }
