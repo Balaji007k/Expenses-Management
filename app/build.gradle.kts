@@ -40,7 +40,6 @@ android {
             signingConfig = signingConfigs.getByName("debug") // Placeholder for development
         }
         debug {
-            applicationIdSuffix = ".debug"
             isDebuggable = true
             versionNameSuffix = "-DEBUG"
         }
@@ -69,6 +68,7 @@ android {
             excludes += "/META-INF/{AL2.0,LGPL2.1}"
             excludes += "/META-INF/INDEX.LIST"
             excludes += "/META-INF/DEPENDENCIES"
+            excludes += "/META-INF/native-image/**"
         }
     }
 }
